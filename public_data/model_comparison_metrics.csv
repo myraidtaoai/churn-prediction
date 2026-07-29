@@ -1,0 +1,5 @@
+algorithm,imbalance_method,validation_pr_auc,validation_best_f1,classification_threshold,selected
+balanced_random_forest,balanced_bootstrap,0.6468422049563658,0.632750397455781,0.5866666666666667,True
+xgboost,scale_pos_weight,0.6334920498969434,0.6335403726703099,0.5930158495903015,False
+lightgbm,scale_pos_weight,0.6440077324522538,0.6116129032253325,0.36455810408776834,False
+extra_trees,class_weight_balanced,0.5863480350007781,0.5931232091685646,0.32,False

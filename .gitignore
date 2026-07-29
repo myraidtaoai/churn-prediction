@@ -1,0 +1,8 @@
+.DS_Store
+**/.DS_Store
+.databricks/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.vscode/

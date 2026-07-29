@@ -1,0 +1,712 @@
+{
+  "datasets": [
+    {
+      "name": "customer_overview",
+      "displayName": "Customer overview",
+      "queryLines": [
+        "SELECT s.customer_id, s.contract, s.internet_service, s.payment_method, s.tenure, s.monthly_charges, s.churn_label, c.churn_probability, c.risk_segment, c.annual_revenue_at_risk\n",
+        "FROM telco_silver s\n",
+        "INNER JOIN customer_churn_scores c USING (customer_id)"
+      ]
+    },
+    {
+      "name": "high_risk_summary",
+      "displayName": "High-risk customer summary",
+      "queryLines": [
+        "SELECT CAST(COALESCE(SUM(CASE WHEN risk_segment = 'High' THEN 1 ELSE 0 END), 0) AS BIGINT) AS high_risk_customers\n",
+        "FROM customer_churn_scores"
+      ]
+    },
+    {
+      "name": "risk_by_contract",
+      "displayName": "Risk by contract",
+      "queryLines": [
+        "SELECT s.contract AS contract, COUNT(*) AS customers, AVG(s.churn_label) AS actual_churn_rate, AVG(c.churn_probability) AS predicted_churn_probability\n",
+        "FROM telco_silver s INNER JOIN customer_churn_scores c USING (customer_id)\n",
+        "GROUP BY s.contract\n",
+        "ORDER BY predicted_churn_probability DESC"
+      ]
+    },
+    {
+      "name": "model_metrics",
+      "displayName": "Model validation metrics",
+      "queryLines": [
+        "SELECT selected_algorithm, model_name, model_version, trained_at, validation_pr_auc, test_roc_auc, test_pr_auc, test_precision, test_recall, test_f1, test_balanced_accuracy, test_rows, classification_threshold\n",
+        "FROM model_validation_metrics"
+      ]
+    },
+    {
+      "name": "high_risk_customers",
+      "displayName": "Highest-risk customer action list",
+      "queryLines": [
+        "SELECT customer_id, contract, tenure, monthly_charges, churn_probability, risk_segment, annual_revenue_at_risk\n",
+        "FROM customer_churn_scores\n",
+        "ORDER BY CASE risk_segment WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, churn_probability DESC\n",
+        "LIMIT 25"
+      ]
+    },
+    {
+      "name": "shap_feature_importance",
+      "displayName": "SHAP feature importance",
+      "queryLines": [
+        "SELECT feature, mean_abs_shap, directional_mean_shap\n",
+        "FROM shap_feature_importance\n",
+        "ORDER BY mean_abs_shap DESC\n",
+        "LIMIT 12"
+      ]
+    },
+    {
+      "name": "churn_by_tenure",
+      "displayName": "Churn by tenure band",
+      "queryLines": [
+        "WITH segmented AS (\n",
+        "  SELECT CASE WHEN tenure <= 6 THEN '0–6' WHEN tenure <= 12 THEN '7–12' WHEN tenure <= 24 THEN '13–24' WHEN tenure <= 48 THEN '25–48' ELSE '49–72' END AS tenure_band,\n",
+        "         CASE WHEN tenure <= 6 THEN 1 WHEN tenure <= 12 THEN 2 WHEN tenure <= 24 THEN 3 WHEN tenure <= 48 THEN 4 ELSE 5 END AS band_order,\n",
+        "         churn_label, monthly_charges\n",
+        "  FROM telco_silver\n",
+        ")\n",
+        "SELECT tenure_band, band_order, COUNT(*) AS customers, AVG(churn_label) AS churn_rate, AVG(monthly_charges) AS avg_monthly_charges\n",
+        "FROM segmented\n",
+        "GROUP BY tenure_band, band_order\n",
+        "ORDER BY band_order"
+      ]
+    },
+    {
+      "name": "churn_by_payment_method",
+      "displayName": "Churn by payment method",
+      "queryLines": [
+        "SELECT payment_method, COUNT(*) AS customers, AVG(churn_label) AS churn_rate, AVG(monthly_charges) AS avg_monthly_charges\n",
+        "FROM telco_silver\n",
+        "GROUP BY payment_method\n",
+        "ORDER BY churn_rate DESC"
+      ]
+    },
+    {
+      "name": "revenue_risk_by_segment",
+      "displayName": "Revenue risk by segment",
+      "queryLines": [
+        "SELECT risk_segment, COUNT(*) AS customers, AVG(churn_probability) AS average_churn_probability, SUM(annual_revenue_at_risk) AS annual_revenue_at_risk\n",
+        "FROM customer_churn_scores\n",
+        "GROUP BY risk_segment\n",
+        "ORDER BY CASE risk_segment WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END"
+      ]
+    },
+    {
+      "name": "predicted_vs_observed_deciles",
+      "displayName": "Predicted versus observed churn by score decile",
+      "queryLines": [
+        "WITH deciles AS (\n",
+        "  SELECT s.churn_label, c.churn_probability, NTILE(10) OVER (ORDER BY c.churn_probability) AS score_decile\n",
+        "  FROM telco_silver s INNER JOIN customer_churn_scores c USING (customer_id)\n",
+        "), summary AS (\n",
+        "  SELECT score_decile, AVG(churn_probability) AS predicted_rate, AVG(churn_label) AS observed_rate\n",
+        "  FROM deciles GROUP BY score_decile\n",
+        ")\n",
+        "SELECT score_decile, 'Predicted probability' AS series, predicted_rate AS rate FROM summary\n",
+        "UNION ALL\n",
+        "SELECT score_decile, 'Observed churn' AS series, observed_rate AS rate FROM summary\n",
+        "ORDER BY score_decile, series"
+      ]
+    },
+    {
+      "name": "test_metric_scorecard",
+      "displayName": "Champion test scorecard",
+      "queryLines": [
+        "SELECT 'PR-AUC' AS metric, test_pr_auc AS value, 1 AS metric_order FROM model_validation_metrics\n",
+        "UNION ALL SELECT 'ROC-AUC', test_roc_auc, 2 FROM model_validation_metrics\n",
+        "UNION ALL SELECT 'Precision', test_precision, 3 FROM model_validation_metrics\n",
+        "UNION ALL SELECT 'Recall', test_recall, 4 FROM model_validation_metrics\n",
+        "UNION ALL SELECT 'F1', test_f1, 5 FROM model_validation_metrics\n",
+        "UNION ALL SELECT 'Balanced accuracy', test_balanced_accuracy, 6 FROM model_validation_metrics\n",
+        "ORDER BY metric_order"
+      ]
+    },
+    {
+      "name": "churn_by_internet_service",
+      "displayName": "Churn by internet service",
+      "queryLines": [
+        "SELECT internet_service, COUNT(*) AS customers, AVG(churn_label) AS churn_rate, AVG(monthly_charges) AS avg_monthly_charges\n",
+        "FROM telco_silver\n",
+        "GROUP BY internet_service\n",
+        "ORDER BY churn_rate DESC"
+      ]
+    },
+    {
+      "name": "churn_by_charge_band",
+      "displayName": "Churn by monthly-charge band",
+      "queryLines": [
+        "WITH bands AS (\n",
+        "  SELECT CASE WHEN monthly_charges < 35 THEN 'Under $35' WHEN monthly_charges < 65 THEN '$35–64' WHEN monthly_charges < 90 THEN '$65–89' ELSE '$90+' END AS charge_band,\n",
+        "         CASE WHEN monthly_charges < 35 THEN 1 WHEN monthly_charges < 65 THEN 2 WHEN monthly_charges < 90 THEN 3 ELSE 4 END AS band_order, churn_label\n",
+        "  FROM telco_silver\n",
+        ")\n",
+        "SELECT charge_band, band_order, COUNT(*) AS customers, AVG(churn_label) AS churn_rate\n",
+        "FROM bands GROUP BY charge_band, band_order ORDER BY band_order"
+      ]
+    },
+    {
+      "name": "risk_concentration",
+      "displayName": "Revenue risk concentration",
+      "queryLines": [
+        "SELECT s.contract, c.risk_segment, COUNT(*) AS customers, SUM(c.annual_revenue_at_risk) AS annual_revenue_at_risk\n",
+        "FROM telco_silver s INNER JOIN customer_churn_scores c USING (customer_id)\n",
+        "GROUP BY s.contract, c.risk_segment\n",
+        "ORDER BY annual_revenue_at_risk DESC"
+      ]
+    },
+    {
+      "name": "candidate_tradeoff",
+      "displayName": "Candidate model trade-off",
+      "queryLines": [
+        "SELECT algorithm, 'Validation PR-AUC' AS metric, validation_pr_auc AS value FROM model_comparison_metrics\n",
+        "UNION ALL\n",
+        "SELECT algorithm, 'Validation best F1' AS metric, validation_best_f1 AS value FROM model_comparison_metrics\n",
+        "ORDER BY algorithm, metric"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "churn_intelligence_report",
+      "displayName": "Churn Intelligence Report",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Telco Churn Intelligence",
+                "Portfolio health, churn patterns, model performance, and retention priorities."
+              ]
+            }
+          },
+          "position": { "x": 0, "y": 0, "width": 6, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "total_customers",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "customer_overview",
+                  "fields": [{ "name": "customers", "expression": "COUNT(`customer_id`)" }],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "encodings": { "value": { "displayName": "Customers", "fieldName": "customers" } },
+              "frame": { "showTitle": true, "title": "Customers Scored" },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          },
+          "position": { "x": 0, "y": 2, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "observed_churn_rate",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "customer_overview",
+                  "fields": [{ "name": "observed_churn_rate", "expression": "AVG(`churn_label`)" }],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "encodings": { "value": { "displayName": "Observed Churn", "fieldName": "observed_churn_rate", "numberFormat": "0.0%" } },
+              "frame": { "showTitle": true, "title": "Observed Churn Rate" },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          },
+          "position": { "x": 2, "y": 2, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "high_risk_customers",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "high_risk_summary",
+                  "fields": [{ "name": "high_risk_customers", "expression": "`high_risk_customers`" }],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": { "value": { "displayName": "High Risk", "fieldName": "high_risk_customers" } },
+              "frame": { "showTitle": true, "title": "High-Risk Customers" },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          },
+          "position": { "x": 4, "y": 2, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "contract_risk",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_by_contract",
+                  "fields": [
+                    { "name": "contract", "expression": "`contract`" },
+                    { "name": "predicted_churn_probability", "expression": "`predicted_churn_probability`" },
+                    { "name": "actual_churn_rate", "expression": "`actual_churn_rate`" },
+                    { "name": "customers", "expression": "`customers`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Observed churn rate", "fieldName": "actual_churn_rate", "scale": { "type": "quantitative" } },
+                "y": { "displayName": "Predicted churn probability", "fieldName": "predicted_churn_probability", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Contract", "fieldName": "contract", "scale": { "type": "categorical" } },
+                "size": { "displayName": "Customers", "fieldName": "customers", "scale": { "type": "quantitative" } }
+              },
+              "frame": { "showTitle": true, "title": "Observed vs. Predicted Churn by Contract" },
+              "version": 3,
+              "widgetType": "scatter"
+            }
+          },
+          "position": { "x": 0, "y": 4, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "risk_distribution",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "customer_overview",
+                  "fields": [
+                    { "name": "risk_segment", "expression": "`risk_segment`" },
+                    { "name": "customers", "expression": "COUNT(`customer_id`)" }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "angle": { "displayName": "Customers", "fieldName": "customers", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Risk segment", "fieldName": "risk_segment", "scale": { "type": "categorical" } }
+              },
+              "frame": { "showTitle": true, "title": "Customer Risk Distribution" },
+              "version": 3,
+              "widgetType": "pie"
+            }
+          },
+          "position": { "x": 3, "y": 4, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "model_pr_auc",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_metrics",
+                  "fields": [{ "name": "test_pr_auc", "expression": "`test_pr_auc`" }],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": { "value": { "displayName": "PR-AUC", "fieldName": "test_pr_auc", "numberFormat": "0.000" } },
+              "frame": { "showTitle": true, "title": "Model PR-AUC" },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          },
+          "position": { "x": 0, "y": 32, "width": 3, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "model_roc_auc",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_metrics",
+                  "fields": [{ "name": "test_roc_auc", "expression": "`test_roc_auc`" }],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": { "value": { "displayName": "ROC-AUC", "fieldName": "test_roc_auc", "numberFormat": "0.000" } },
+              "frame": { "showTitle": true, "title": "Model ROC-AUC" },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          },
+          "position": { "x": 3, "y": 32, "width": 3, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "data_exploration_intro",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Data exploration",
+                "Where churn occurs across customer tenure, payment, service, and price."
+              ]
+            }
+          },
+          "position": { "x": 0, "y": 10, "width": 6, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "model_evaluation_intro",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Model evaluation",
+                "How the Champion performs, calibrates, and explains predictions."
+              ]
+            }
+          },
+          "position": { "x": 0, "y": 30, "width": 6, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "tenure_churn_rate",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "churn_by_tenure",
+                  "fields": [
+                    { "name": "tenure_band", "expression": "`tenure_band`" },
+                    { "name": "churn_rate", "expression": "`churn_rate`" },
+                    { "name": "customers", "expression": "`customers`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Tenure band", "fieldName": "tenure_band", "scale": { "type": "categorical" } },
+                "y": { "displayName": "Observed churn rate", "fieldName": "churn_rate", "scale": { "type": "quantitative" } }
+              },
+              "frame": { "showTitle": true, "title": "Churn Rate by Customer Tenure" },
+              "version": 3,
+              "widgetType": "area"
+            }
+          },
+          "position": { "x": 0, "y": 12, "width": 6, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "payment_method_churn_rate",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "churn_by_payment_method",
+                  "fields": [
+                    { "name": "payment_method", "expression": "`payment_method`" },
+                    { "name": "churn_rate", "expression": "`churn_rate`" },
+                    { "name": "customers", "expression": "`customers`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Payment method", "fieldName": "payment_method", "scale": { "type": "categorical" } },
+                "y": { "displayName": "Observed churn rate", "fieldName": "churn_rate", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Payment method", "fieldName": "payment_method", "scale": { "type": "categorical" } }
+              },
+              "frame": { "showTitle": true, "title": "Churn Rate by Payment Method" },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          },
+          "position": { "x": 0, "y": 18, "width": 6, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "revenue_risk",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "revenue_risk_by_segment",
+                  "fields": [
+                    { "name": "risk_segment", "expression": "`risk_segment`" },
+                    { "name": "annual_revenue_at_risk", "expression": "`annual_revenue_at_risk`" },
+                    { "name": "average_churn_probability", "expression": "`average_churn_probability`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Risk segment", "fieldName": "risk_segment", "scale": { "type": "categorical" } },
+                "y": { "displayName": "Annual revenue at risk", "fieldName": "annual_revenue_at_risk", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Average churn probability", "fieldName": "average_churn_probability", "scale": { "type": "continuous" } }
+              },
+              "frame": { "showTitle": true, "title": "Expected Annual Revenue at Risk" },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          },
+          "position": { "x": 0, "y": 55, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "predicted_vs_observed",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "predicted_vs_observed_deciles",
+                  "fields": [
+                    { "name": "score_decile", "expression": "`score_decile`" },
+                    { "name": "series", "expression": "`series`" },
+                    { "name": "rate", "expression": "`rate`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Score decile", "fieldName": "score_decile", "scale": { "type": "quantitative" } },
+                "y": { "displayName": "Rate", "fieldName": "rate", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Series", "fieldName": "series", "scale": { "type": "categorical" } }
+              },
+              "frame": { "showTitle": true, "title": "Predicted vs. Observed Churn by Score Decile" },
+              "version": 3,
+              "widgetType": "line"
+            }
+          },
+          "position": { "x": 3, "y": 40, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "champion_test_scorecard",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "test_metric_scorecard",
+                  "fields": [
+                    { "name": "metric", "expression": "`metric`" },
+                    { "name": "value", "expression": "`value`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Metric", "fieldName": "metric", "scale": { "type": "categorical" } },
+                "y": { "displayName": "Test value", "fieldName": "value", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Metric", "fieldName": "metric", "scale": { "type": "categorical" } }
+              },
+              "frame": { "showTitle": true, "title": "Champion Test-Set Scorecard" },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          },
+          "position": { "x": 0, "y": 40, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "shap_directional_drivers",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "shap_feature_importance",
+                  "fields": [
+                    { "name": "feature", "expression": "`feature`" },
+                    { "name": "mean_abs_shap", "expression": "`mean_abs_shap`" },
+                    { "name": "directional_mean_shap", "expression": "`directional_mean_shap`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Mean absolute SHAP", "fieldName": "mean_abs_shap", "scale": { "type": "quantitative" } },
+                "y": { "displayName": "Feature", "fieldName": "feature", "scale": { "type": "categorical" } },
+                "color": { "displayName": "Directional SHAP", "fieldName": "directional_mean_shap", "scale": { "type": "continuous" } }
+              },
+              "frame": { "showTitle": true, "title": "SHAP Importance and Direction" },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          },
+          "position": { "x": 0, "y": 46, "width": 6, "height": 7 }
+        },
+        {
+          "widget": {
+            "name": "retention_actions_intro",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Retention priorities",
+                "Revenue exposure and the highest-risk customers for operational review."
+              ]
+            }
+          },
+          "position": { "x": 0, "y": 53, "width": 6, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "candidate_metric_tradeoff",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "candidate_tradeoff",
+                  "fields": [
+                    { "name": "algorithm", "expression": "`algorithm`" },
+                    { "name": "metric", "expression": "`metric`" },
+                    { "name": "value", "expression": "`value`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Algorithm", "fieldName": "algorithm", "scale": { "type": "categorical" } },
+                "y": { "displayName": "Validation score", "fieldName": "value", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Metric", "fieldName": "metric", "scale": { "type": "categorical" } }
+              },
+              "frame": { "showTitle": true, "title": "Candidate Trade-off: Finding Churners vs. Threshold Performance" },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          },
+          "position": { "x": 0, "y": 34, "width": 6, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "internet_service_churn",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "churn_by_internet_service",
+                "fields": [
+                  { "name": "internet_service", "expression": "`internet_service`" },
+                  { "name": "churn_rate", "expression": "`churn_rate`" },
+                  { "name": "customers", "expression": "`customers`" }
+                ],
+                "disaggregated": true
+              }
+            }],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Internet service", "fieldName": "internet_service", "scale": { "type": "categorical" } },
+                "y": { "displayName": "Observed churn rate", "fieldName": "churn_rate", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Internet service", "fieldName": "internet_service", "scale": { "type": "categorical" } }
+              },
+              "frame": { "showTitle": true, "title": "Churn by Internet Service" },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          },
+          "position": { "x": 0, "y": 24, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "monthly_charge_churn",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "churn_by_charge_band",
+                "fields": [
+                  { "name": "charge_band", "expression": "`charge_band`" },
+                  { "name": "churn_rate", "expression": "`churn_rate`" },
+                  { "name": "customers", "expression": "`customers`" }
+                ],
+                "disaggregated": true
+              }
+            }],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Monthly-charge band", "fieldName": "charge_band", "scale": { "type": "categorical" } },
+                "y": { "displayName": "Observed churn rate", "fieldName": "churn_rate", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Charge band", "fieldName": "charge_band", "scale": { "type": "categorical" } }
+              },
+              "frame": { "showTitle": true, "title": "Churn by Monthly-Charge Band" },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          },
+          "position": { "x": 3, "y": 24, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "contract_risk_value",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "risk_concentration",
+                "fields": [
+                  { "name": "contract", "expression": "`contract`" },
+                  { "name": "risk_segment", "expression": "`risk_segment`" },
+                  { "name": "annual_revenue_at_risk", "expression": "`annual_revenue_at_risk`" }
+                ],
+                "disaggregated": true
+              }
+            }],
+            "spec": {
+              "encodings": {
+                "x": { "displayName": "Contract", "fieldName": "contract", "scale": { "type": "categorical" } },
+                "y": { "displayName": "Annual revenue at risk", "fieldName": "annual_revenue_at_risk", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Risk segment", "fieldName": "risk_segment", "scale": { "type": "categorical" } }
+              },
+              "frame": { "showTitle": true, "title": "Revenue at Risk by Contract and Segment" },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          },
+          "position": { "x": 3, "y": 55, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "high_risk_table_print",
+            "queries": [{
+              "name": "main_query",
+              "query": {
+                "datasetName": "high_risk_customers",
+                "fields": [
+                  { "name": "customer_id", "expression": "`customer_id`" },
+                  { "name": "contract", "expression": "`contract`" },
+                  { "name": "tenure", "expression": "`tenure`" },
+                  { "name": "churn_probability", "expression": "`churn_probability`" },
+                  { "name": "annual_revenue_at_risk", "expression": "`annual_revenue_at_risk`" }
+                ],
+                "disaggregated": true
+              }
+            }],
+            "spec": {
+              "frame": { "showTitle": true, "title": "Top Retention Opportunities (Operational Use)" },
+              "itemsPerPage": 10,
+              "version": 1,
+              "widgetType": "table"
+            }
+          },
+          "position": { "x": 0, "y": 61, "width": 6, "height": 6 }
+        }
+      ]
+    }
+  ]
+}

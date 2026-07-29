@@ -1,0 +1,38 @@
+# Declarative Automation Bundle for the Telco Customer Churn project.
+bundle:
+  name: churn-prediction
+
+include:
+  - resources/*.yml
+
+sync:
+  include:
+    - src/**
+    - data/WA_Fn-UseC_-Telco-Customer-Churn.csv
+
+variables:
+  catalog:
+    description: Unity Catalog name that owns the churn tables and model.
+    default: main
+  schema:
+    description: Schema deployed by the bundle for Bronze, Silver, Gold, and ML assets.
+    default: churn_dev
+  source_file_name:
+    description: File name uploaded to the managed landing Volume.
+    default: WA_Fn-UseC_-Telco-Customer-Churn.csv
+  warehouse_id:
+    description: ID of the SQL warehouse used by the AI/BI dashboard.
+targets:
+  dev:
+    mode: development
+    default: true
+    variables:
+      schema: churn_dev
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: main
+      schema: churn

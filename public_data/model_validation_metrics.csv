@@ -1,0 +1,2 @@
+selected_algorithm,model_name,model_version,validation_pr_auc,test_roc_auc,test_pr_auc,test_precision,test_recall,test_f1,test_balanced_accuracy,classification_threshold
+balanced_random_forest,local_reproducible_churn_champion,local-1,0.6468422049563658,0.8197473455785476,0.5975799037236904,0.5560859188544153,0.6229946524064172,0.587641866330391,0.7216422537394405,0.5866666666666667
