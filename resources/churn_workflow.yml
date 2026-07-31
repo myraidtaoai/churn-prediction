@@ -38,7 +38,7 @@ resources:
   jobs:
     churn_pipeline:
       name: ${bundle.target}-churn-pipeline
-      description: Ingest, transform, train, and score the Telco customer churn model.
+      description: Ingest, transform, train a Candidate, apply promotion gates, and score with Champion.
       max_concurrent_runs: 1
       timeout_seconds: 7200
       schedule:
@@ -101,8 +101,22 @@ resources:
               - ${resources.experiments.churn_training.name}
               - --model-name
               - ${resources.registered_models.telco_churn_model.full_name}
+        - task_key: evaluate_and_promote_candidate
+          depends_on:
+            - task_key: train_and_register_model
+          environment_key: ml_v4
+          spark_python_task:
+            python_file: "../src/churn_pipeline/promote.py"
+            parameters:
+              - --catalog
+              - ${resources.schemas.churn_schema.catalog_name}
+              - --schema
+              - ${resources.schemas.churn_schema.name}
+              - --model-name
+              - ${resources.registered_models.telco_churn_model.full_name}
         - task_key: batch_score_customers
-          depends_on: [{task_key: train_and_register_model}]
+          depends_on:
+            - task_key: evaluate_and_promote_candidate
           environment_key: ml_v4
           spark_python_task:
             python_file: "../src/churn_pipeline/score.py"

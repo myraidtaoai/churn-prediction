@@ -310,16 +310,16 @@ comparison = pd.DataFrame(
 (
     spark.createDataFrame(comparison)
     .write.format("delta")
-    .mode("append")
-    .option("mergeSchema", "true")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
     .saveAsTable(table(args.catalog, args.schema, "model_comparison_metrics"))
 )
 
 (
     spark.createDataFrame(shap_importance)
     .write.format("delta")
-    .mode("append")
-    .option("mergeSchema", "true")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
     .saveAsTable(
         table(args.catalog, args.schema, "shap_feature_importance")
     )
