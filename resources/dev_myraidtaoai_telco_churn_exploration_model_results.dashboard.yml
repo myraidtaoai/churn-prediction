@@ -1,6 +1,0 @@
-resources:
-  dashboards:
-    dev_myraidtaoai_telco_churn_exploration_model_results:
-      display_name: "[dev myraidtaoai] Telco Churn — Exploration & Model Results"
-      warehouse_id: 0cfc9de5e296b3b6
-      file_path: ../src/dev_myraidtaoai_telco_churn_exploration_model_results.lvdash.json
