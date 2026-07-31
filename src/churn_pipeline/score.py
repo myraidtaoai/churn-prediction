@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import mlflow.sklearn
 import pandas as pd
-
 from common import base_parser, get_spark, table
 from model_utils import assign_risk_segments
-
 
 spark = get_spark()
 parser = base_parser("Score all customers with the registered Champion model.")

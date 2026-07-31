@@ -9,10 +9,12 @@ import mlflow.sklearn
 import numpy as np
 import pandas as pd
 import shap
+from common import base_parser, get_spark, table
 from imblearn.ensemble import BalancedRandomForestClassifier
 from lightgbm import LGBMClassifier
 from mlflow import MlflowClient
 from mlflow.models import infer_signature
+from model_utils import choose_threshold
 from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import ExtraTreesClassifier
@@ -29,10 +31,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from xgboost import XGBClassifier
-
-from common import base_parser, get_spark, table
-from model_utils import choose_threshold
-
 
 RANDOM_STATE = 996
 

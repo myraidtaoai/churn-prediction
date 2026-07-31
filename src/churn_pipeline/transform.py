@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from pyspark.sql import functions as F
-
 from common import get_spark, parse_catalog_schema, table
-
+from pyspark.sql import functions as F
 
 spark = get_spark()
 args = parse_catalog_schema()
