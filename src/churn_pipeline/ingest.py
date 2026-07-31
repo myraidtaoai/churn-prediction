@@ -7,11 +7,9 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
+from common import get_spark, table
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType, StructField, StructType
-
-from common import get_spark, table
-
 
 spark = get_spark()
 
