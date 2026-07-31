@@ -286,7 +286,9 @@ registered = mlflow.register_model(
     await_registration_for=300,
 )
 MlflowClient().set_registered_model_alias(
-    args.model_name, "Champion", registered.version
+    args.model_name,
+    "Candidate",
+    registered.version,
 )
 
 trained_at = datetime.now(timezone.utc)
@@ -305,20 +307,29 @@ comparison = pd.DataFrame(
         for candidate in candidates
     ]
 )
-spark.createDataFrame(comparison).write.format("delta").mode("overwrite").option(
-    "overwriteSchema", "true"
-).saveAsTable(table(args.catalog, args.schema, "model_comparison_metrics"))
+(
+    spark.createDataFrame(comparison)
+    .write.format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .saveAsTable(table(args.catalog, args.schema, "model_comparison_metrics"))
+)
 
-spark.createDataFrame(shap_importance).write.format("delta").mode(
-    "overwrite"
-).option("overwriteSchema", "true").saveAsTable(
-    table(args.catalog, args.schema, "shap_feature_importance")
+(
+    spark.createDataFrame(shap_importance)
+    .write.format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .saveAsTable(
+        table(args.catalog, args.schema, "shap_feature_importance")
+    )
 )
 
 metrics_row = {
     "run_id": best["run_id"],
     "model_name": args.model_name,
     "model_version": str(registered.version),
+    "model_alias": "Candidate",
     "selected_algorithm": best["algorithm"],
     "selection_metric": "validation_pr_auc",
     "validation_pr_auc": best["validation_pr_auc"],
@@ -328,8 +339,12 @@ metrics_row = {
     "test_rows": int(len(y_test)),
     "classification_threshold": float(best["threshold"]),
 }
-spark.createDataFrame(pd.DataFrame([metrics_row])).write.format("delta").mode(
-    "overwrite"
-).option("overwriteSchema", "true").saveAsTable(
-    table(args.catalog, args.schema, "model_validation_metrics")
+(
+    spark.createDataFrame(pd.DataFrame([metrics_row]))
+    .write.format("delta")
+    .mode("append")
+    .option("mergeSchema", "true")
+    .saveAsTable(
+        table(args.catalog, args.schema, "model_candidate_metrics")
+    )
 )
