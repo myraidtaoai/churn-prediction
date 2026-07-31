@@ -37,8 +37,8 @@ resources:
 
   jobs:
     churn_pipeline:
-      name: ${bundle.target}-churn-pipeline
-      description: Ingest, transform, train a Candidate, apply promotion gates, and score with Champion.
+      name: ${bundle.target}-churn-data-pipeline
+      description: Ingest Bronze data and produce validated Silver and Gold tables.
       max_concurrent_runs: 1
       timeout_seconds: 7200
       schedule:
@@ -52,17 +52,6 @@ resources:
         - environment_key: etl_v4
           spec:
             environment_version: "4"
-        - environment_key: ml_v4
-          spec:
-            # Environment 4 already supplies its mutually compatible NumPy,
-            # pandas, SciPy, scikit-learn, PyArrow, and Databricks Connect.
-            environment_version: "4"
-            dependencies:
-              - mlflow==2.22.0
-              - imbalanced-learn==0.13.0
-              - xgboost==2.1.4
-              - lightgbm==4.6.0
-              - shap==0.47.2
       tasks:
         - task_key: ingest_bronze
           environment_key: etl_v4
@@ -87,8 +76,25 @@ resources:
               - ${resources.schemas.churn_schema.catalog_name}
               - --schema
               - ${resources.schemas.churn_schema.name}
+    churn_model_pipeline:
+      name: ${bundle.target}-churn-model-pipeline
+      description: Train a Candidate model and apply the Champion promotion policy.
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+
+      environments:
+        - environment_key: ml_v4
+          spec:
+            environment_version: "4"
+            dependencies:
+              - mlflow==2.22.0
+              - imbalanced-learn==0.13.0
+              - xgboost==2.1.4
+              - lightgbm==4.6.0
+              - shap==0.47.2
+
+      tasks:
         - task_key: train_and_register_model
-          depends_on: [{task_key: transform_silver_and_gold}]
           environment_key: ml_v4
           spark_python_task:
             python_file: "../src/churn_pipeline/train.py"
@@ -101,6 +107,7 @@ resources:
               - ${resources.experiments.churn_training.name}
               - --model-name
               - ${resources.registered_models.telco_churn_model.full_name}
+
         - task_key: evaluate_and_promote_candidate
           depends_on:
             - task_key: train_and_register_model
@@ -114,9 +121,25 @@ resources:
               - ${resources.schemas.churn_schema.name}
               - --model-name
               - ${resources.registered_models.telco_churn_model.full_name}
+    churn_batch_score:
+      name: ${bundle.target}-churn-batch-score
+      description: Score the current customer snapshot with the approved Champion.
+      max_concurrent_runs: 1
+      timeout_seconds: 3600
+
+      environments:
+        - environment_key: ml_v4
+          spec:
+            environment_version: "4"
+            dependencies:
+              - mlflow==2.22.0
+              - imbalanced-learn==0.13.0
+              - xgboost==2.1.4
+              - lightgbm==4.6.0
+              - shap==0.47.2
+
+      tasks:
         - task_key: batch_score_customers
-          depends_on:
-            - task_key: evaluate_and_promote_candidate
           environment_key: ml_v4
           spark_python_task:
             python_file: "../src/churn_pipeline/score.py"
