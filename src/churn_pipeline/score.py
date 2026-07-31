@@ -2,23 +2,52 @@
 
 from __future__ import annotations
 
+import mlflow
 import mlflow.sklearn
 import pandas as pd
 from common import base_parser, get_spark, table
 from model_utils import assign_risk_segments
+from pyspark.sql import functions as F
 
 spark = get_spark()
 parser = base_parser("Score all customers with the registered Champion model.")
 parser.add_argument("--model-name", required=True)
 args = parser.parse_args()
 pdf = spark.table(table(args.catalog, args.schema, "telco_silver")).toPandas()
+
 mlflow.set_registry_uri("databricks-uc")
-model = mlflow.sklearn.load_model(f"models:/{args.model_name}@Champion")
+client = mlflow.MlflowClient()
+
+registered_model = client.get_registered_model(args.model_name)
+aliases = registered_model.aliases or {}
+champion_version = aliases.get("Champion")
+
+if champion_version is None:
+    raise RuntimeError(
+        "The registered model does not have a Champion alias. "
+        "Promote an approved Candidate before scoring."
+    )
+
+model = mlflow.sklearn.load_model(
+    f"models:/{args.model_name}/{champion_version}"
+)
+
 feature_columns = list(model.feature_names_in_)
 probability = model.predict_proba(pdf[feature_columns])[:, 1]
-metric_row = spark.table(table(args.catalog, args.schema, "model_validation_metrics")).first()
+
+metric_row = (
+    spark.table(
+        table(args.catalog, args.schema, "model_validation_metrics")
+    )
+    .where(F.col("model_version") == str(champion_version))
+    .first()
+)
 if metric_row is None:
-    raise RuntimeError("model_validation_metrics is empty; run training before scoring.")
+    raise RuntimeError(
+        f"Champion alias points to version {champion_version}, "
+        "but matching Champion metrics were not found. "
+        "Scoring was stopped to prevent using the wrong threshold."
+    )
 classification_threshold = float(metric_row["classification_threshold"])
 risk_segment = assign_risk_segments(probability, classification_threshold)
 
@@ -33,7 +62,7 @@ scores = pd.DataFrame(
         "monthly_charges": pdf["monthly_charges"],
         "annual_revenue_at_risk": pdf["monthly_charges"] * 12 * probability,
         "selected_algorithm": metric_row["selected_algorithm"],
-        "model_version": metric_row["model_version"],
+        "model_version": str(champion_version),
         "scored_at": pd.Timestamp.now(tz="UTC"),
     }
 )
