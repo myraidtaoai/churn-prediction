@@ -6,6 +6,7 @@ import mlflow
 import mlflow.sklearn
 import pandas as pd
 from common import base_parser, get_spark, table
+from mlflow.exceptions import MlflowException
 from model_utils import assign_risk_segments
 from pyspark.sql import functions as F
 
@@ -18,15 +19,18 @@ pdf = spark.table(table(args.catalog, args.schema, "telco_silver")).toPandas()
 mlflow.set_registry_uri("databricks-uc")
 client = mlflow.MlflowClient()
 
-registered_model = client.get_registered_model(args.model_name)
-aliases = registered_model.aliases or {}
-champion_version = aliases.get("Champion")
-
-if champion_version is None:
+try:
+    champion_model_version = client.get_model_version_by_alias(
+        args.model_name,
+        "Champion",
+    )
+except MlflowException as exc:
     raise RuntimeError(
         "The registered model does not have a Champion alias. "
         "Promote an approved Candidate before scoring."
-    )
+    ) from exc
+
+champion_version = str(champion_model_version.version)
 
 model = mlflow.sklearn.load_model(
     f"models:/{args.model_name}/{champion_version}"

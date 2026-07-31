@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import mlflow
 from common import base_parser, get_spark, table
+from mlflow.exceptions import MlflowException
 from promotion_policy import ModelMetrics, evaluate_promotion
 from pyspark.sql import functions as F
 
@@ -18,17 +19,29 @@ args = parser.parse_args()
 mlflow.set_registry_uri("databricks-uc")
 client = mlflow.MlflowClient()
 
-registered_model = client.get_registered_model(args.model_name)
-aliases = registered_model.aliases or {}
-
-candidate_version = aliases.get("Candidate")
-champion_version = aliases.get("Champion")
-
-if candidate_version is None:
+try:
+    candidate_model_version = client.get_model_version_by_alias(
+        args.model_name,
+        "Candidate",
+    )
+except MlflowException as exc:
     raise RuntimeError(
         "The registered model does not have a Candidate alias. "
         "Run candidate training before promotion."
+    ) from exc
+
+candidate_version = str(candidate_model_version.version)
+
+try:
+    champion_model_version = client.get_model_version_by_alias(
+        args.model_name,
+        "Champion",
     )
+    champion_version = str(champion_model_version.version)
+except MlflowException as exc:
+    if exc.error_code not in {"RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"}:
+        raise
+    champion_version = None
 
 candidate_row = (
     spark.table(
