@@ -51,8 +51,7 @@ model_info = mlflow.models.get_model_info(model_uri)
 signature = model_info.signature
 if signature is None or signature.inputs is None or signature.outputs is None:
     raise RuntimeError(
-        f"Champion version {champion_version} does not have a complete model "
-        "signature."
+        f"Champion version {champion_version} does not have a complete model signature."
     )
 
 feature_columns = signature.inputs.input_names()
@@ -67,15 +66,13 @@ if not required_outputs.issubset(output_columns):
 missing_features = sorted(set(feature_columns) - set(source_df.columns))
 if missing_features:
     raise RuntimeError(
-        "The scoring dataset is missing model features: "
-        + ", ".join(missing_features)
+        "The scoring dataset is missing model features: " + ", ".join(missing_features)
     )
 
 metric_row = (
-    spark.table(
-        table(args.catalog, args.schema, "model_validation_metrics")
-    )
-    .where(F.col("model_version") == str(champion_version))
+    spark.table(table(args.catalog, args.schema, "model_candidate_metrics"))
+    .where(F.col("model_version") == champion_version)
+    .orderBy(F.col("trained_at").desc())
     .first()
 )
 if metric_row is None:
@@ -86,9 +83,7 @@ if metric_row is None:
     )
 classification_threshold = float(metric_row["classification_threshold"])
 udf_options = {
-    "result_type": (
-        "struct<churn_probability:double,churn_prediction:long>"
-    ),
+    "result_type": ("struct<churn_probability:double,churn_prediction:long>"),
     "env_manager": "local",
 }
 prediction_udf = create_spark_udf_with_runtime_compat(
@@ -118,17 +113,13 @@ scores_df = predicted_df.select(
     F.lit(args.scoring_run_id).alias("scoring_run_id"),
     F.col("customer_id"),
     probability.alias("churn_probability"),
-    F.col("_prediction.churn_prediction").cast("int").alias(
-        "churn_prediction"
-    ),
+    F.col("_prediction.churn_prediction").cast("int").alias("churn_prediction"),
     F.lit(classification_threshold).alias("classification_threshold"),
     risk_segment.alias("risk_segment"),
     F.col("contract"),
     F.col("tenure"),
     F.col("monthly_charges"),
-    (F.col("monthly_charges") * 12 * probability).alias(
-        "annual_revenue_at_risk"
-    ),
+    (F.col("monthly_charges") * 12 * probability).alias("annual_revenue_at_risk"),
     F.lit(metric_row["selected_algorithm"]).alias("selected_algorithm"),
     F.lit(args.model_name).alias("model_name"),
     F.lit(champion_version).alias("model_version"),

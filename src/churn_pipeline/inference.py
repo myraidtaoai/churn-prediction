@@ -26,12 +26,10 @@ class ChurnProbabilityModel(mlflow.pyfunc.PythonModel):
         params: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
         """Score a batch using the wrapped probabilistic classifier."""
-        probability = np.asarray(
-            self.estimator.predict_proba(model_input)
-        )[:, 1].astype(float)
-        prediction = (
-            probability >= self.classification_threshold
-        ).astype("int64")
+        probability = np.asarray(self.estimator.predict_proba(model_input))[
+            :, 1
+        ].astype(float)
+        prediction = (probability >= self.classification_threshold).astype("int64")
 
         return pd.DataFrame(
             {

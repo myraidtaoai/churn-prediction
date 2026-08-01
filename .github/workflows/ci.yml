@@ -37,6 +37,7 @@ jobs:
 
       - name: Run Ruff
         run: |
+          ruff format --check src tests
           ruff check src tests --output-format=github
 
       - name: Run tests

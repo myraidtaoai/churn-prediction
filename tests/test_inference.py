@@ -18,9 +18,7 @@ def test_probability_model_returns_probability_and_prediction():
 
     result = model.predict(
         context=None,
-        model_input=pd.DataFrame(
-            {"probability": [0.20, 0.60, 0.90]}
-        ),
+        model_input=pd.DataFrame({"probability": [0.20, 0.60, 0.90]}),
     )
 
     assert result.columns.tolist() == [
@@ -39,9 +37,7 @@ def test_probability_model_uses_configured_threshold():
 
     result = model.predict(
         context=None,
-        model_input=pd.DataFrame(
-            {"probability": [0.70, 0.80]}
-        ),
+        model_input=pd.DataFrame({"probability": [0.70, 0.80]}),
     )
 
     assert result["churn_prediction"].tolist() == [0, 1]

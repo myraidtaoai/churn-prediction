@@ -185,9 +185,7 @@ mlflow.set_experiment(args.experiment_name)
 
 candidates = []
 for algorithm, (estimator, imbalance_method) in candidate_estimators.items():
-    model = Pipeline(
-        [("preprocessor", clone(preprocessor)), ("classifier", estimator)]
-    )
+    model = Pipeline([("preprocessor", clone(preprocessor)), ("classifier", estimator)])
     with mlflow.start_run(run_name=algorithm) as run:
         model.fit(X_train, y_train)
         validation_probability = model.predict_proba(X_validation)[:, 1]
@@ -259,14 +257,11 @@ test_prediction = (test_probability >= best["threshold"]).astype(int)
 test_metrics = {
     "test_roc_auc": float(roc_auc_score(y_test, test_probability)),
     "test_pr_auc": float(average_precision_score(y_test, test_probability)),
-    "test_precision": float(
-        precision_score(y_test, test_prediction, zero_division=0)
-    ),
+    "test_precision": float(precision_score(y_test, test_prediction, zero_division=0)),
     "test_recall": float(recall_score(y_test, test_prediction, zero_division=0)),
     "test_f1": float(f1_score(y_test, test_prediction, zero_division=0)),
-    "test_balanced_accuracy": float(
-        balanced_accuracy_score(y_test, test_prediction)
-    ),
+    "test_balanced_accuracy": float(balanced_accuracy_score(y_test, test_prediction)),
+    "test_positive_rate": float(y_test.mean()),
 }
 with mlflow.start_run(run_id=best["run_id"]):
     mlflow.log_metrics(test_metrics)
@@ -346,9 +341,7 @@ comparison = pd.DataFrame(
     .write.format("delta")
     .mode("overwrite")
     .option("overwriteSchema", "true")
-    .saveAsTable(
-        table(args.catalog, args.schema, "shap_feature_importance")
-    )
+    .saveAsTable(table(args.catalog, args.schema, "shap_feature_importance"))
 )
 
 metrics_row = {
@@ -370,7 +363,5 @@ metrics_row = {
     .write.format("delta")
     .mode("append")
     .option("mergeSchema", "true")
-    .saveAsTable(
-        table(args.catalog, args.schema, "model_candidate_metrics")
-    )
+    .saveAsTable(table(args.catalog, args.schema, "model_candidate_metrics"))
 )

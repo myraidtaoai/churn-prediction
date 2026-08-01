@@ -8,7 +8,11 @@ import mlflow
 from common import base_parser, get_spark, table
 from inference import INFERENCE_CONTRACT_TAG, INFERENCE_CONTRACT_VERSION
 from mlflow.exceptions import MlflowException
-from promotion_policy import ModelMetrics, evaluate_promotion
+from promotion_policy import (
+    ModelMetrics,
+    evaluate_promotion,
+    require_deployable_champion,
+)
 from pyspark.sql import functions as F
 
 spark = get_spark()
@@ -60,9 +64,7 @@ contract_upgrade = (
 )
 
 candidate_row = (
-    spark.table(
-        table(args.catalog, args.schema, "model_candidate_metrics")
-    )
+    spark.table(table(args.catalog, args.schema, "model_candidate_metrics"))
     .where(F.col("model_version") == str(candidate_version))
     .orderBy(F.col("trained_at").desc())
     .first()
@@ -76,15 +78,13 @@ if candidate_row is None:
 candidate_metrics = ModelMetrics(
     pr_auc=float(candidate_row["test_pr_auc"]),
     recall=float(candidate_row["test_recall"]),
+    positive_rate=float(candidate_row["test_positive_rate"]),
 )
-
 champion_metrics = None
 
 if champion_version is not None:
     champion_row = (
-        spark.table(
-            table(args.catalog, args.schema, "model_validation_metrics")
-        )
+        spark.table(table(args.catalog, args.schema, "model_validation_metrics"))
         .where(F.col("model_version") == str(champion_version))
         .orderBy(F.col("trained_at").desc())
         .first()
@@ -125,9 +125,7 @@ if decision.approved:
         .write.format("delta")
         .mode("overwrite")
         .option("overwriteSchema", "true")
-        .saveAsTable(
-            table(args.catalog, args.schema, "model_validation_metrics")
-        )
+        .saveAsTable(table(args.catalog, args.schema, "model_validation_metrics"))
     )
 
 audit_row = {
@@ -171,10 +169,10 @@ audit_schema = """
     .write.format("delta")
     .mode("append")
     .option("mergeSchema", "true")
-    .saveAsTable(
-        table(args.catalog, args.schema, "model_promotion_history")
-    )
+    .saveAsTable(table(args.catalog, args.schema, "model_promotion_history"))
 )
+
+require_deployable_champion(decision, champion_version)
 
 print(
     f"Promotion decision for Candidate version {candidate_version}: "
