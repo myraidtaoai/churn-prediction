@@ -4,7 +4,7 @@ The committed CSV files are a reproducible local training snapshot from the same
 
 When a newer Databricks Champion is available, replace these snapshots with the following query results downloaded as CSV from Databricks SQL. This keeps the public dashboard current with the registered production model.
 
-Do not export `customer_id`, individual churn probabilities, or the `customer_churn_scores` table.
+Do not export `customer_id`, individual churn probabilities, or customer-level rows from `current_customer_churn_scores` or `prediction_history`.
 
 Run these queries in the Databricks SQL editor, replacing `<catalog>` and `<schema>` with the deployed names. Download each result as CSV using the SQL editor's download control.
 
@@ -61,6 +61,6 @@ SELECT
   COUNT(*) AS customers,
   AVG(churn_probability) AS average_churn_probability,
   SUM(annual_revenue_at_risk) AS annual_revenue_at_risk
-FROM <catalog>.<schema>.customer_churn_scores
+FROM <catalog>.<schema>.current_customer_churn_scores
 GROUP BY risk_segment;
 ```
