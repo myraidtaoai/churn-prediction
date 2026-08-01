@@ -110,6 +110,35 @@ spark.sql(
     """
 )
 
+current_scores_view = table(
+    args.catalog,
+    args.schema,
+    "current_customer_churn_scores",
+)
+
+spark.sql(
+    f"""
+    CREATE OR REPLACE VIEW {current_scores_view} AS
+    WITH scoring_runs AS (
+        SELECT
+            scoring_run_id,
+            MAX(scored_at) AS latest_scored_at
+        FROM {history_table}
+        GROUP BY scoring_run_id
+    ),
+    latest_run AS (
+        SELECT scoring_run_id
+        FROM scoring_runs
+        ORDER BY latest_scored_at DESC, scoring_run_id DESC
+        LIMIT 1
+    )
+    SELECT history.*
+    FROM {history_table} AS history
+    INNER JOIN latest_run
+      ON history.scoring_run_id = latest_run.scoring_run_id
+    """
+)
+
 (
     scores_df.write.format("delta")
     .mode("overwrite")

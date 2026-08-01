@@ -48,7 +48,7 @@ databricks bundle run churn_pipeline -t dev --var="warehouse_id=<warehouse-id>" 
 
 The bundle is configured for Free Edition's serverless-only compute. It uses four sequential job tasks, within the Free Edition limit of five concurrent tasks, and does not require a custom VM type or cluster configuration. Keep the job schedule paused until the interactive run succeeds; Free Edition compute is quota-limited and is intended for learning and non-commercial projects.
 
-Use `customer_churn_scores` as the deployment output for the dashboard. The Free Edition has constrained Model Serving capacity, so a real-time API endpoint should be treated as optional experimentation rather than the primary delivery mechanism.
+Use `prediction_history` as the append-only scoring record and `current_customer_churn_scores` as the latest-run view used by the dashboard. The Free Edition has constrained Model Serving capacity, so a real-time API endpoint should be treated as optional experimentation rather than the primary delivery mechanism.
 
 ## Permissions
 
@@ -71,7 +71,8 @@ The unit tests cover validation-threshold selection, production risk-segment bou
 
 The bundle deploys an AI/BI dashboard definition from `dashboards/churn_exploration_and_model_results.lvdash.json`. It combines customer exploration with model results using:
 
-- `<catalog>.<schema>.telco_silver` and `<catalog>.<schema>.customer_churn_scores` for customer counts, observed churn, risk segmentation, contract analysis, and the high-risk action list.
+- `<catalog>.<schema>.telco_silver` and `<catalog>.<schema>.current_customer_churn_scores` for customer counts, observed churn, risk segmentation, contract analysis, and the high-risk action list.
+- `<catalog>.<schema>.prediction_history` for immutable, versioned batch-scoring history.
 - `<catalog>.<schema>.model_validation_metrics` for the Champion model's ROC-AUC and PR-AUC.
 - `<catalog>.<schema>.model_comparison_metrics` for validation PR-AUC across all four candidate classifiers.
 - `<catalog>.<schema>.shap_feature_importance` for the model's most influential churn drivers.
