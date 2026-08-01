@@ -31,6 +31,7 @@ def get_spark():
     """Return the Spark Connect session attached to the current Databricks job."""
     try:
         from databricks.connect import DatabricksSession
+
         return DatabricksSession.builder.getOrCreate()
     except ValueError as exc:
         if "numpy.dtype size changed" not in str(exc):

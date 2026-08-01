@@ -10,12 +10,7 @@ from packaging.version import InvalidVersion
 
 
 def test_uncut_databricks_runtime_is_normalized_for_mlflow():
-    assert (
-        normalize_uncut_databricks_runtime(
-            "18.x-aarch64-photon-scala2"
-        )
-        == "18.999"
-    )
+    assert normalize_uncut_databricks_runtime("18.x-aarch64-photon-scala2") == "18.999"
 
 
 @pytest.mark.parametrize(
@@ -28,9 +23,7 @@ def test_unrecognized_runtime_is_not_silently_rewritten(version):
 
 
 def test_mlflow_sandbox_cache_is_repaired(monkeypatch):
-    sandbox_info = SimpleNamespace(
-        runtime_version="18.x-aarch64-photon-scala2"
-    )
+    sandbox_info = SimpleNamespace(runtime_version="18.x-aarch64-photon-scala2")
     monkeypatch.setattr(
         "mlflow.utils.databricks_utils.get_dbconnect_udf_sandbox_info",
         lambda spark: sandbox_info,
@@ -44,17 +37,13 @@ def test_mlflow_sandbox_cache_is_repaired(monkeypatch):
 
 
 def test_spark_udf_creation_retries_after_runtime_repair(monkeypatch):
-    sandbox_info = SimpleNamespace(
-        runtime_version="18.x-aarch64-photon-scala2"
-    )
+    sandbox_info = SimpleNamespace(runtime_version="18.x-aarch64-photon-scala2")
     calls = []
 
     def create_udf(spark, model_uri, **options):
         calls.append((spark, model_uri, options))
         if len(calls) == 1:
-            raise InvalidVersion(
-                "Invalid version: '18.x-aarch64-photon-scala2'"
-            )
+            raise InvalidVersion("Invalid version: '18.x-aarch64-photon-scala2'")
         return "prediction-udf"
 
     monkeypatch.setattr(

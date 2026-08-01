@@ -53,9 +53,11 @@ def test_risk_portfolio_is_complete_and_monotonic() -> None:
     with SOURCE_DATA.open(newline="", encoding="utf-8-sig") as source:
         source_count = sum(1 for _ in csv.DictReader(source))
     assert sum(int(row["customers"]) for row in risk_rows) == source_count
-    assert float(by_segment["High"]["average_churn_probability"]) > float(
-        by_segment["Medium"]["average_churn_probability"]
-    ) > float(by_segment["Low"]["average_churn_probability"])
+    assert (
+        float(by_segment["High"]["average_churn_probability"])
+        > float(by_segment["Medium"]["average_churn_probability"])
+        > float(by_segment["Low"]["average_churn_probability"])
+    )
 
 
 def test_shap_export_is_sorted_and_matches_champion() -> None:

@@ -5,18 +5,14 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_UNCUT_DBR_VERSION = re.compile(
-    r"^(?P<major>[0-9]+)\.x(?:[-.].*)?$"
-)
+_UNCUT_DBR_VERSION = re.compile(r"^(?P<major>[0-9]+)\.x(?:[-.].*)?$")
 
 
 def normalize_uncut_databricks_runtime(version: str) -> str:
     """Convert a DBR ``major.x`` image label to a comparable version."""
     match = _UNCUT_DBR_VERSION.fullmatch(version)
     if match is None:
-        raise ValueError(
-            f"Unsupported Databricks runtime version: {version!r}"
-        )
+        raise ValueError(f"Unsupported Databricks runtime version: {version!r}")
 
     return f"{match.group('major')}.999"
 

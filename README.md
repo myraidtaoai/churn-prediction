@@ -45,6 +45,17 @@ databricks bundle run churn_model_pipeline -t dev --var="warehouse_id=<warehouse
 databricks bundle run churn_batch_score -t dev --var="warehouse_id=<warehouse-id>"
 ```
 
+To roll the Champion alias back to a previously validated registered-model version,
+run the manual rollback job with the target version:
+
+```bash
+databricks bundle run churn_model_rollback -t dev --var="warehouse_id=<warehouse-id>" -- --target_version <model-version>
+```
+
+Rollback validates the model version, inference contract, and immutable candidate
+metrics before changing the alias. It verifies the new alias and appends a `ROLLBACK`
+event to `model_promotion_history`; it never edits model metrics or prediction tables.
+
 The first deployment of the versioned inference contract must run the model pipeline before batch scoring. Training logs a probability-producing MLflow `pyfunc` model, promotion replaces a legacy Champion only when model quality is preserved, and batch scoring rejects an incompatible Champion instead of silently producing incorrect output.
 
 Override variables to use another catalog or schema. Use the same values for deploy and run:

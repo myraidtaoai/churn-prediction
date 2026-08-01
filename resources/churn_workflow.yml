@@ -149,6 +149,35 @@ resources:
               - --scoring-run-id
               - "{{job.run_id}}"
 
+    churn_model_rollback:
+      name: ${bundle.target}-churn-model-rollback
+      description: Manually restore the Champion alias to a validated model version.
+      max_concurrent_runs: 1
+      timeout_seconds: 1800
+      parameters:
+        - name: target_version
+          default: ""
+      environments:
+        - environment_key: ml_v4
+          spec:
+            environment_version: "4"
+            dependencies:
+              - mlflow==2.22.0
+      tasks:
+        - task_key: rollback_champion
+          environment_key: ml_v4
+          spark_python_task:
+            python_file: "../src/churn_pipeline/rollback.py"
+            parameters:
+              - --catalog
+              - ${resources.schemas.churn_schema.catalog_name}
+              - --schema
+              - ${resources.schemas.churn_schema.name}
+              - --model-name
+              - ${resources.registered_models.telco_churn_model.full_name}
+              - --target-version
+              - "{{job.parameters.target_version}}"
+
     churn_end_to_end:
       name: ${bundle.target}-churn-end-to-end
       description: Orchestrate data preparation, model promotion, and batch scoring.
