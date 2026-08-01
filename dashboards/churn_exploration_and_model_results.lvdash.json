@@ -149,7 +149,7 @@
       "displayName": "Revenue risk concentration",
       "queryLines": [
         "SELECT s.contract, c.risk_segment, COUNT(*) AS customers, SUM(c.annual_revenue_at_risk) AS annual_revenue_at_risk\n",
-        "FROM telco_silver s INNER JOIN current_ c USING (customer_id)\n",
+        "FROM telco_silver s INNER JOIN current_customer_churn_scores c USING (customer_id)\n",
         "GROUP BY s.contract, c.risk_segment\n",
         "ORDER BY annual_revenue_at_risk DESC"
       ]
