@@ -6,7 +6,7 @@
 ![Serverless](https://img.shields.io/badge/Compute-Serverless-6F42C1?style=flat-square&logo=apache-spark&logoColor=white)
 ![Classification](https://img.shields.io/badge/ML-Classification-2EA44F?style=flat-square&logo=scikitlearn&logoColor=white)
 
-This bundle deploys the Unity Catalog schema, managed landing Volume, MLflow experiment, registered model, AI/BI dashboard, and three independently runnable production workflows for data preparation, model training and promotion, and batch scoring.
+This bundle deploys the Unity Catalog schema, managed landing Volume, MLflow experiment, registered model, AI/BI dashboard, three independently runnable stage workflows, and an end-to-end orchestration workflow.
 
 The training task compares `BalancedRandomForestClassifier`, XGBoost, LightGBM, and Extra Trees. It uses a stratified train/validation/test split, applies each model's appropriate class-imbalance method, and promotes the candidate with the best validation PR-AUC. It selects a classification threshold from validation data and publishes PR-AUC, ROC-AUC, precision, recall, F1, and balanced accuracy for the dashboard. It also calculates Shapley values on a representative held-out sample and writes global feature impact to `shap_feature_importance`.
 
@@ -31,7 +31,13 @@ databricks bundle deploy -t dev --var="warehouse_id=<warehouse-id>"
 
 Deployment packages the repository CSV and creates the schema and `landing` Volume. On the first run, `ingest_bronze` automatically copies the packaged CSV to the resolved Volume path. This correctly handles the schema prefix that development mode adds, so no manual `databricks fs cp` command is required.
 
-Run the workflows in dependency order:
+Run the complete workflow with one command:
+
+```bash
+databricks bundle run churn_end_to_end -t dev --var="warehouse_id=<warehouse-id>"
+```
+
+For targeted reruns or troubleshooting, run the stage workflows in dependency order:
 
 ```bash
 databricks bundle run churn_data_pipeline -t dev --var="warehouse_id=<warehouse-id>"
@@ -52,7 +58,7 @@ databricks bundle run churn_batch_score -t dev --var="warehouse_id=<warehouse-id
 
 ## Databricks Free Edition
 
-The bundle is configured for Free Edition's serverless-only compute. Each workflow runs sequential tasks and does not require a custom VM type or cluster configuration. Keep the data-pipeline schedule paused until all three workflows succeed interactively; Free Edition compute is quota-limited and is intended for learning and non-commercial projects.
+The bundle is configured for Free Edition's serverless-only compute. The end-to-end job invokes the three stage jobs sequentially and does not require a custom VM type or cluster configuration. Keep its weekly schedule paused until `churn_end_to_end` succeeds interactively; Free Edition compute is quota-limited and is intended for learning and non-commercial projects.
 
 Batch inference uses an MLflow Spark UDF, so customer rows remain distributed instead of being collected into driver memory. Use `prediction_history` as the append-only scoring record and `current_customer_churn_scores` as the latest-run view used by the dashboard. The Free Edition has constrained Model Serving capacity, so a real-time API endpoint should be treated as optional experimentation rather than the primary delivery mechanism.
 
@@ -60,7 +66,7 @@ Batch inference uses an MLflow Spark UDF, so customer rows remain distributed in
 
 The identity running `bundle deploy` needs permission to create a schema, managed Volume, registered model, dashboard, and an MLflow experiment directly in its workspace home. The workflow run identity needs `READ VOLUME` and `WRITE VOLUME` on the landing Volume and permission to create or replace tables in the deployed schema.
 
-The weekly schedule is intentionally paused. Resume it in the Databricks job UI after the first successful run, or change `pause_status` to `UNPAUSED` and redeploy.
+The end-to-end job owns the weekly schedule, which is intentionally paused. Resume it in the Databricks job UI after the first successful end-to-end run, or change `pause_status` to `UNPAUSED` and redeploy. The three stage jobs remain unscheduled so they cannot accidentally overlap with orchestration.
 
 ## Tests
 
