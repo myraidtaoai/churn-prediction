@@ -11,7 +11,7 @@ TRAINING_SOURCE = (
 def test_batch_scoring_uses_distributed_mlflow_inference():
     source = SCORING_SOURCE.read_text(encoding="utf-8")
 
-    assert "mlflow.pyfunc.spark_udf" in source
+    assert "create_spark_udf_with_runtime_compat" in source
     assert ".toPandas(" not in source
 
 

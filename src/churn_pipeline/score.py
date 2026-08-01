@@ -10,6 +10,7 @@ import mlflow.pyfunc
 from common import base_parser, get_spark, table
 from inference import INFERENCE_CONTRACT_TAG, INFERENCE_CONTRACT_VERSION
 from mlflow.exceptions import MlflowException
+from mlflow_compat import create_spark_udf_with_runtime_compat
 from pyspark.sql import functions as F
 
 spark = get_spark()
@@ -84,11 +85,16 @@ if metric_row is None:
         "Scoring was stopped to prevent using the wrong threshold."
     )
 classification_threshold = float(metric_row["classification_threshold"])
-prediction_udf = mlflow.pyfunc.spark_udf(
+udf_options = {
+    "result_type": (
+        "struct<churn_probability:double,churn_prediction:long>"
+    ),
+    "env_manager": "local",
+}
+prediction_udf = create_spark_udf_with_runtime_compat(
     spark,
     model_uri,
-    result_type="struct<churn_probability:double,churn_prediction:long>",
-    env_manager="local",
+    **udf_options,
 )
 prediction_input = F.struct(
     *(F.col(column).alias(column) for column in feature_columns)
