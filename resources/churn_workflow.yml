@@ -36,15 +36,11 @@ resources:
       dataset_schema: ${resources.schemas.churn_schema.name}
 
   jobs:
-    churn_pipeline:
+    churn_data_pipeline:
       name: ${bundle.target}-churn-data-pipeline
       description: Ingest Bronze data and produce validated Silver and Gold tables.
       max_concurrent_runs: 1
       timeout_seconds: 7200
-      schedule:
-        quartz_cron_expression: "0 0 6 ? * MON"
-        timezone_id: America/Toronto
-        pause_status: PAUSED
       # Keep ETL on the untouched Databricks base environment. Install only
       # missing model libraries in a separate environment so compiled ML
       # wheels cannot break Spark Connect initialization in Bronze/Silver.
@@ -152,3 +148,29 @@ resources:
               - ${resources.registered_models.telco_churn_model.full_name}
               - --scoring-run-id
               - "{{job.run_id}}"
+
+    churn_end_to_end:
+      name: ${bundle.target}-churn-end-to-end
+      description: Orchestrate data preparation, model promotion, and batch scoring.
+      max_concurrent_runs: 1
+      timeout_seconds: 18000
+      schedule:
+        quartz_cron_expression: "0 0 6 ? * MON"
+        timezone_id: America/Toronto
+        pause_status: PAUSED
+      tasks:
+        - task_key: run_data_pipeline
+          run_job_task:
+            job_id: ${resources.jobs.churn_data_pipeline.id}
+
+        - task_key: run_model_pipeline
+          depends_on:
+            - task_key: run_data_pipeline
+          run_job_task:
+            job_id: ${resources.jobs.churn_model_pipeline.id}
+
+        - task_key: run_batch_score
+          depends_on:
+            - task_key: run_model_pipeline
+          run_job_task:
+            job_id: ${resources.jobs.churn_batch_score.id}

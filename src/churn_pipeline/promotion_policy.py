@@ -23,6 +23,7 @@ def evaluate_promotion(
     minimum_first_model_pr_auc: float = 0.60,
     required_pr_auc_improvement: float = 0.01,
     maximum_recall_degradation: float = 0.02,
+    allow_equivalent_contract_upgrade: bool = False,
 ) -> PromotionDecision:
     """Determine whether Candidate should replace Champion."""
 
@@ -35,10 +36,15 @@ def evaluate_promotion(
         )
         return PromotionDecision(approved, reason)
 
+    required_improvement = (
+        0.0
+        if allow_equivalent_contract_upgrade
+        else required_pr_auc_improvement
+    )
     pr_auc_improvement = candidate.pr_auc - champion.pr_auc
     recall_degradation = champion.recall - candidate.recall
 
-    if pr_auc_improvement < required_pr_auc_improvement:
+    if pr_auc_improvement < required_improvement - 1e-12:
         return PromotionDecision(
             False,
             "Candidate does not provide the required PR-AUC improvement.",
@@ -50,7 +56,9 @@ def evaluate_promotion(
             "Candidate recall degradation exceeds the allowed threshold.",
         )
 
-    return PromotionDecision(
-        True,
-        "Candidate satisfies the promotion requirements.",
+    reason = (
+        "Candidate preserves model quality and upgrades the inference contract."
+        if allow_equivalent_contract_upgrade
+        else "Candidate satisfies the promotion requirements."
     )
+    return PromotionDecision(True, reason)
