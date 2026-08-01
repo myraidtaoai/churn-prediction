@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from inference import ChurnProbabilityModel
+from mlflow.models import infer_signature
 
 
 class FixedProbabilityEstimator:
@@ -44,3 +45,22 @@ def test_probability_model_uses_configured_threshold():
     )
 
     assert result["churn_prediction"].tolist() == [0, 1]
+
+
+def test_probability_model_signature_preserves_named_contract():
+    model = ChurnProbabilityModel(
+        estimator=FixedProbabilityEstimator(),
+        classification_threshold=0.60,
+    )
+    model_input = pd.DataFrame({"probability": [0.20, 0.90]})
+
+    signature = infer_signature(
+        model_input,
+        model.predict(context=None, model_input=model_input),
+    )
+
+    assert signature.inputs.input_names() == ["probability"]
+    assert signature.outputs.input_names() == [
+        "churn_probability",
+        "churn_prediction",
+    ]

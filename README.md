@@ -6,7 +6,7 @@
 ![Serverless](https://img.shields.io/badge/Compute-Serverless-6F42C1?style=flat-square&logo=apache-spark&logoColor=white)
 ![Classification](https://img.shields.io/badge/ML-Classification-2EA44F?style=flat-square&logo=scikitlearn&logoColor=white)
 
-This bundle deploys the Unity Catalog schema, managed landing Volume, MLflow experiment, registered model, AI/BI dashboard, and a workflow that ingests the Telco CSV, produces Bronze/Silver/Gold tables, trains the churn classifiers, and writes customer-level scores.
+This bundle deploys the Unity Catalog schema, managed landing Volume, MLflow experiment, registered model, AI/BI dashboard, and three independently runnable production workflows for data preparation, model training and promotion, and batch scoring.
 
 The training task compares `BalancedRandomForestClassifier`, XGBoost, LightGBM, and Extra Trees. It uses a stratified train/validation/test split, applies each model's appropriate class-imbalance method, and promotes the candidate with the best validation PR-AUC. It selects a classification threshold from validation data and publishes PR-AUC, ROC-AUC, precision, recall, F1, and balanced accuracy for the dashboard. It also calculates Shapley values on a representative held-out sample and writes global feature impact to `shap_feature_importance`.
 
@@ -31,24 +31,30 @@ databricks bundle deploy -t dev --var="warehouse_id=<warehouse-id>"
 
 Deployment packages the repository CSV and creates the schema and `landing` Volume. On the first run, `ingest_bronze` automatically copies the packaged CSV to the resolved Volume path. This correctly handles the schema prefix that development mode adds, so no manual `databricks fs cp` command is required.
 
-Run the workflow:
+Run the workflows in dependency order:
 
 ```bash
-databricks bundle run churn_pipeline -t dev --var="warehouse_id=<warehouse-id>"
+databricks bundle run churn_data_pipeline -t dev --var="warehouse_id=<warehouse-id>"
+databricks bundle run churn_model_pipeline -t dev --var="warehouse_id=<warehouse-id>"
+databricks bundle run churn_batch_score -t dev --var="warehouse_id=<warehouse-id>"
 ```
+
+The first deployment of the versioned inference contract must run the model pipeline before batch scoring. Training logs a probability-producing MLflow `pyfunc` model, promotion replaces a legacy Champion only when model quality is preserved, and batch scoring rejects an incompatible Champion instead of silently producing incorrect output.
 
 Override variables to use another catalog or schema. Use the same values for deploy and run:
 
 ```bash
 databricks bundle deploy -t dev --var="warehouse_id=<warehouse-id>" --var="catalog=my_catalog" --var="schema=churn_alex"
-databricks bundle run churn_pipeline -t dev --var="warehouse_id=<warehouse-id>" --var="catalog=my_catalog" --var="schema=churn_alex"
+databricks bundle run churn_data_pipeline -t dev --var="warehouse_id=<warehouse-id>" --var="catalog=my_catalog" --var="schema=churn_alex"
+databricks bundle run churn_model_pipeline -t dev --var="warehouse_id=<warehouse-id>" --var="catalog=my_catalog" --var="schema=churn_alex"
+databricks bundle run churn_batch_score -t dev --var="warehouse_id=<warehouse-id>" --var="catalog=my_catalog" --var="schema=churn_alex"
 ```
 
 ## Databricks Free Edition
 
-The bundle is configured for Free Edition's serverless-only compute. It uses four sequential job tasks, within the Free Edition limit of five concurrent tasks, and does not require a custom VM type or cluster configuration. Keep the job schedule paused until the interactive run succeeds; Free Edition compute is quota-limited and is intended for learning and non-commercial projects.
+The bundle is configured for Free Edition's serverless-only compute. Each workflow runs sequential tasks and does not require a custom VM type or cluster configuration. Keep the data-pipeline schedule paused until all three workflows succeed interactively; Free Edition compute is quota-limited and is intended for learning and non-commercial projects.
 
-Use `prediction_history` as the append-only scoring record and `current_customer_churn_scores` as the latest-run view used by the dashboard. The Free Edition has constrained Model Serving capacity, so a real-time API endpoint should be treated as optional experimentation rather than the primary delivery mechanism.
+Batch inference uses an MLflow Spark UDF, so customer rows remain distributed instead of being collected into driver memory. Use `prediction_history` as the append-only scoring record and `current_customer_churn_scores` as the latest-run view used by the dashboard. The Free Edition has constrained Model Serving capacity, so a real-time API endpoint should be treated as optional experimentation rather than the primary delivery mechanism.
 
 ## Permissions
 
@@ -65,7 +71,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest -v
 ```
 
-The unit tests cover validation-threshold selection, production risk-segment boundaries, and invalid scoring inputs. Regression tests verify Champion selection, metric ranges, portfolio completeness, risk ordering, and the published SHAP snapshot. These dependencies are for local testing only and are not installed into the Databricks serverless job environments.
+The unit tests cover validation-threshold selection, production risk-segment boundaries, promotion guardrails, and the versioned probability-output contract. Regression tests verify distributed scoring remains free of driver-side Pandas collection, as well as Champion selection, metric ranges, portfolio completeness, risk ordering, and the published SHAP snapshot. These dependencies are for local testing only and are not installed into the Databricks serverless job environments.
 
 ## Dashboard
 

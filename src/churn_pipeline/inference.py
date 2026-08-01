@@ -8,6 +8,9 @@ import mlflow.pyfunc
 import numpy as np
 import pandas as pd
 
+INFERENCE_CONTRACT_TAG = "inference_contract"
+INFERENCE_CONTRACT_VERSION = "churn_probability_v1"
+
 
 class ChurnProbabilityModel(mlflow.pyfunc.PythonModel):
     """Return churn probabilities and thresholded predictions."""

@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 import mlflow
-import mlflow.sklearn
+import mlflow.pyfunc
 import numpy as np
 import pandas as pd
 import shap
 from common import base_parser, get_spark, table
 from imblearn.ensemble import BalancedRandomForestClassifier
+from inference import (
+    INFERENCE_CONTRACT_TAG,
+    INFERENCE_CONTRACT_VERSION,
+    ChurnProbabilityModel,
+)
 from lightgbm import LGBMClassifier
 from mlflow import MlflowClient
 from mlflow.models import infer_signature
@@ -208,11 +214,23 @@ for algorithm, (estimator, imbalance_method) in candidate_estimators.items():
             }
         )
         example = X_train.head(5)
-        mlflow.sklearn.log_model(
-            sk_model=model,
+        serving_model = ChurnProbabilityModel(model, threshold)
+        prediction_example = serving_model.predict(None, example)
+        mlflow.pyfunc.log_model(
             artifact_path="model",
+            python_model=serving_model,
             input_example=example,
-            signature=infer_signature(example, model.predict(example)),
+            signature=infer_signature(example, prediction_example),
+            code_path=[str(Path(__file__).with_name("inference.py"))],
+            pip_requirements=[
+                "mlflow==2.22.0",
+                "numpy>=1.26,<3",
+                "pandas>=2,<3",
+                "scikit-learn>=1.6,<2",
+                "imbalanced-learn==0.13.0",
+                "xgboost==2.1.4",
+                "lightgbm==4.6.0",
+            ],
         )
         candidates.append(
             {
@@ -285,7 +303,14 @@ registered = mlflow.register_model(
     args.model_name,
     await_registration_for=300,
 )
-MlflowClient().set_registered_model_alias(
+registry_client = MlflowClient()
+registry_client.set_model_version_tag(
+    args.model_name,
+    registered.version,
+    INFERENCE_CONTRACT_TAG,
+    INFERENCE_CONTRACT_VERSION,
+)
+registry_client.set_registered_model_alias(
     args.model_name,
     "Candidate",
     registered.version,
