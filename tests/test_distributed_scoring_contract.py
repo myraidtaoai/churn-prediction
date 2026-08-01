@@ -1,7 +1,11 @@
 from pathlib import Path
 
-SCORING_SOURCE = Path(__file__).parents[1] / "src" / "churn_pipeline" / "score.py"
-TRAINING_SOURCE = Path(__file__).parents[1] / "src" / "churn_pipeline" / "train.py"
+SCORING_SOURCE = (
+    Path(__file__).parents[1] / "src" / "churn_pipeline" / "modeling" / "score.py"
+)
+TRAINING_SOURCE = (
+    Path(__file__).parents[1] / "src" / "churn_pipeline" / "modeling" / "train.py"
+)
 
 
 def test_batch_scoring_uses_distributed_mlflow_inference():

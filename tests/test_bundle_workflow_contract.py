@@ -6,6 +6,8 @@ WORKFLOW_PATH = Path(__file__).parents[1] / "resources" / "churn_workflow.yml"
 README_PATH = Path(__file__).parents[1] / "README.md"
 
 EXPECTED_JOBS = {
+    "churn_event_generator",
+    "churn_seed_bronze",
     "churn_data_pipeline",
     "churn_model_pipeline",
     "churn_model_rollback",
@@ -32,10 +34,15 @@ def test_job_tasks_preserve_required_execution_order():
     scoring_tasks = jobs["churn_batch_score"]["tasks"]
 
     assert [task["task_key"] for task in data_tasks] == [
-        "ingest_bronze",
+        "ingest_events",
         "transform_silver_and_gold",
+        "build_features",
+        "generate_labels",
     ]
-    assert data_tasks[1]["depends_on"] == [{"task_key": "ingest_bronze"}]
+    assert "depends_on" not in data_tasks[0]  # ingest_events is the first task
+    assert data_tasks[1]["depends_on"] == [{"task_key": "ingest_events"}]
+    assert data_tasks[2]["depends_on"] == [{"task_key": "transform_silver_and_gold"}]
+    assert data_tasks[3]["depends_on"] == [{"task_key": "build_features"}]
 
     assert [task["task_key"] for task in model_tasks] == [
         "train_and_register_model",
@@ -95,9 +102,29 @@ def test_rollback_job_is_manual_and_accepts_a_target_version():
     assert [task["task_key"] for task in tasks] == ["rollback_champion"]
     rollback_task = tasks[0]
     assert rollback_task["spark_python_task"]["python_file"] == (
-        "../src/churn_pipeline/rollback.py"
+        "../src/churn_pipeline/modeling/rollback.py"
     )
     assert rollback_task["spark_python_task"]["parameters"][-2:] == [
         "--target-version",
         "{{job.parameters.target_version}}",
     ]
+
+
+def test_event_generator_is_manual_parameterized_and_volume_backed():
+    generator = load_jobs()["churn_event_generator"]
+
+    assert "schedule" not in generator
+    assert generator["max_concurrent_runs"] == 1
+    assert generator["parameters"] == [
+        {"name": "event_date", "default": ""},
+        {"name": "seed", "default": "20260801"},
+        {"name": "drift_level", "default": "0.0"},
+    ]
+    task = generator["tasks"][0]
+    assert task["task_key"] == "generate_customer_events"
+    assert task["spark_python_task"]["python_file"] == (
+        "../src/churn_pipeline/ingestion/generate_events.py"
+    )
+    parameters = task["spark_python_task"]["parameters"]
+    assert "--output-root" in parameters
+    assert any(str(value).startswith("/Volumes/") for value in parameters)

@@ -1,6 +1,12 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src/churn_pipeline"]
+pythonpath = [
+    "src/churn_pipeline",
+    "src/churn_pipeline/ingestion",
+    "src/churn_pipeline/transformation",
+    "src/churn_pipeline/modeling",
+    "src/churn_pipeline/ops",
+]
 addopts = "-q"
 
 [tool.ruff]
@@ -20,3 +26,9 @@ select = [
     "F",
     "I",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"src/churn_pipeline/ingestion/*.py" = ["E402", "I001"]
+"src/churn_pipeline/transformation/*.py" = ["E402", "I001"]
+"src/churn_pipeline/modeling/*.py" = ["E402", "I001"]
+"src/churn_pipeline/ops/*.py" = ["E402", "I001"]

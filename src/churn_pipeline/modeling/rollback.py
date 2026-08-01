@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import _path_helper  # noqa: F401 — adds churn_pipeline/ to sys.path
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -70,7 +72,11 @@ def rollback_champion(
     """Validate, move, verify, and audit a Champion rollback."""
     target_version = str(target_version).strip()
     if not target_version:
-        raise RollbackValidationError("A target model version is required.")
+        raise RollbackValidationError(
+            "A target model version is required. Set target_version in the "
+            "Databricks Run now parameters or run the bundle with "
+            "--params target_version=<model-version>."
+        )
 
     target_model = _get_model_version(client, model_name, target_version)
     target_contract = (target_model.tags or {}).get(INFERENCE_CONTRACT_TAG, "")
