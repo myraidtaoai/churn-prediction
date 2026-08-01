@@ -138,12 +138,3 @@ spark.sql(
       ON history.scoring_run_id = latest_run.scoring_run_id
     """
 )
-
-(
-    scores_df.write.format("delta")
-    .mode("overwrite")
-    .option("overwriteSchema", "true")
-    .saveAsTable(
-        table(args.catalog, args.schema, "customer_churn_scores")
-    )
-)
