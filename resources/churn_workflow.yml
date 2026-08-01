@@ -150,3 +150,5 @@ resources:
               - ${resources.schemas.churn_schema.name}
               - --model-name
               - ${resources.registered_models.telco_churn_model.full_name}
+              - --scoring-run-id
+              - "{{job.run_id}}"

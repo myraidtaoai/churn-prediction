@@ -13,6 +13,7 @@ from pyspark.sql import functions as F
 spark = get_spark()
 parser = base_parser("Score all customers with the registered Champion model.")
 parser.add_argument("--model-name", required=True)
+parser.add_argument("--scoring-run-id", required=True)
 args = parser.parse_args()
 pdf = spark.table(table(args.catalog, args.schema, "telco_silver")).toPandas()
 
@@ -57,20 +58,63 @@ risk_segment = assign_risk_segments(probability, classification_threshold)
 
 scores = pd.DataFrame(
     {
+        "scoring_run_id": args.scoring_run_id,
         "customer_id": pdf["customer_id"],
         "churn_probability": probability,
-        "churn_prediction": (probability >= classification_threshold).astype(int),
+        "churn_prediction": (
+            probability >= classification_threshold
+        ).astype(int),
+        "classification_threshold": classification_threshold,
         "risk_segment": risk_segment,
         "contract": pdf["contract"],
         "tenure": pdf["tenure"],
         "monthly_charges": pdf["monthly_charges"],
-        "annual_revenue_at_risk": pdf["monthly_charges"] * 12 * probability,
+        "annual_revenue_at_risk": (
+            pdf["monthly_charges"] * 12 * probability
+        ),
         "selected_algorithm": metric_row["selected_algorithm"],
-        "model_version": str(champion_version),
+        "model_name": args.model_name,
+        "model_version": champion_version,
+        "model_run_id": str(champion_model_version.run_id or ""),
         "scored_at": pd.Timestamp.now(tz="UTC"),
     }
 )
 
-spark.createDataFrame(scores).write.format("delta").mode("overwrite").option(
-    "overwriteSchema", "true"
-).saveAsTable(table(args.catalog, args.schema, "customer_churn_scores"))
+scores_df = spark.createDataFrame(scores)
+history_table = table(
+    args.catalog,
+    args.schema,
+    "prediction_history",
+)
+
+scores_df.createOrReplaceTempView("new_churn_predictions")
+
+spark.sql(
+    f"""
+    CREATE TABLE IF NOT EXISTS {history_table}
+    USING DELTA
+    AS
+    SELECT *
+    FROM new_churn_predictions
+    WHERE 1 = 0
+    """
+)
+
+spark.sql(
+    f"""
+    MERGE INTO {history_table} AS target
+    USING new_churn_predictions AS source
+      ON target.scoring_run_id = source.scoring_run_id
+     AND target.customer_id = source.customer_id
+    WHEN NOT MATCHED THEN INSERT *
+    """
+)
+
+(
+    scores_df.write.format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .saveAsTable(
+        table(args.catalog, args.schema, "customer_churn_scores")
+    )
+)
