@@ -106,6 +106,24 @@ def test_rollback_rejects_unknown_target_before_alias_mutation(versions, metrics
     assert client.alias_updates == []
 
 
+def test_rollback_rejects_empty_target_with_run_instructions(versions, metrics):
+    client = FakeMlflowClient(versions, champion_version="2")
+
+    with pytest.raises(
+        RollbackValidationError,
+        match=r"--params target_version=<model-version>",
+    ):
+        rollback_champion(
+            client=client,
+            model_name="model",
+            target_version="",
+            read_metrics=metrics.get,
+            write_audit=lambda row: None,
+        )
+
+    assert client.alias_updates == []
+
+
 def test_rollback_rejects_incompatible_inference_contract(versions, metrics):
     client = FakeMlflowClient(versions, champion_version="2")
 

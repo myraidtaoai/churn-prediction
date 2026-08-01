@@ -1,0 +1,92 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Commit SHA from a successful Deploy Dev run
+        required: true
+        type: string
+      deployment_reason:
+        description: Change or release being approved
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  verify-release:
+    name: Verify the revision passed Dev deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+    steps:
+      - name: Find successful Dev deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! printf '%s' "${RELEASE_SHA}" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+            echo "release_sha must be a full 40-character Git commit SHA."
+            exit 1
+          fi
+          successful_runs="$(gh run list \
+            --workflow deploy-dev.yml \
+            --commit "${RELEASE_SHA}" \
+            --status success \
+            --json databaseId \
+            --jq 'length')"
+          if [ "${successful_runs}" -lt 1 ]; then
+            echo "No successful Deploy Dev run exists for ${RELEASE_SHA}."
+            exit 1
+          fi
+
+  deploy-production:
+    name: Approve and deploy Production
+    needs: verify-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: prod
+    env:
+      DATABRICKS_AUTH_TYPE: github-oidc
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_WAREHOUSE_ID: ${{ vars.DATABRICKS_WAREHOUSE_ID }}
+
+    steps:
+      - name: Check out the Dev-verified revision
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_sha }}
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Check deployment configuration
+        run: |
+          test -n "${DATABRICKS_HOST}"
+          test -n "${DATABRICKS_CLIENT_ID}"
+          test -n "${DATABRICKS_WAREHOUSE_ID}"
+          databricks current-user me
+
+      - name: Validate Production bundle
+        run: >-
+          databricks bundle validate -t prod
+          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
+
+      - name: Deploy Production bundle
+        run: >-
+          databricks bundle deploy -t prod
+          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
+
+      - name: Summarize Production deployment
+        run: >-
+          databricks bundle summary -t prod
+          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"

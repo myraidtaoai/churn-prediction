@@ -31,11 +31,21 @@ databricks bundle deploy -t dev --var="warehouse_id=<warehouse-id>"
 
 Deployment packages the repository CSV and creates the schema and `landing` Volume. On the first run, `ingest_bronze` automatically copies the packaged CSV to the resolved Volume path. This correctly handles the schema prefix that development mode adds, so no manual `databricks fs cp` command is required.
 
+Pushes to `main` that pass CI are automatically validated, deployed to Dev, and exercised with the end-to-end workflow. Production deployment is manual, accepts only a commit SHA that passed the Dev deployment, and uses the protected `prod` GitHub environment for approval. Both stages authenticate with short-lived GitHub OIDC credentials. Complete the one-time environment and service-principal configuration in [Deployment and identity setup](docs/deployment.md).
+
 Run the complete workflow with one command:
 
 ```bash
 databricks bundle run churn_end_to_end -t dev --var="warehouse_id=<warehouse-id>"
 ```
+
+Generate a reproducible daily customer-event batch in the managed landing Volume:
+
+```bash
+databricks bundle run churn_event_generator -t dev --var="warehouse_id=<warehouse-id>" --params event_date=2026-08-02,seed=20260801,drift_level=0.0
+```
+
+The generator reads the validated `telco_silver` snapshot and writes append-only JSONL under `landing/events/year=YYYY/month=MM/day=DD`. The same date, seed, and drift level always produce the same event IDs and payload; an identical rerun is a no-op, while a conflicting rewrite is rejected. Increase `drift_level` from `0.0` toward `1.0` to simulate more payment failures, support calls, complaints, plan changes, cancellations, higher charges, and reduced usage. Auto Loader ingestion is intentionally the next independent pipeline stage. See [Customer event generation](docs/event-generation.md) for the data contract, drift behavior, and verification query.
 
 For targeted reruns or troubleshooting, run the stage workflows in dependency order:
 
@@ -49,7 +59,7 @@ To roll the Champion alias back to a previously validated registered-model versi
 run the manual rollback job with the target version:
 
 ```bash
-databricks bundle run churn_model_rollback -t dev --var="warehouse_id=<warehouse-id>" -- --target_version <model-version>
+databricks bundle run churn_model_rollback -t dev --var="warehouse_id=<warehouse-id>" --params target_version=<model-version>
 ```
 
 Rollback validates the model version, inference contract, and immutable candidate
