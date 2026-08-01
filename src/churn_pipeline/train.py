@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -221,7 +222,7 @@ for algorithm, (estimator, imbalance_method) in candidate_estimators.items():
             python_model=serving_model,
             input_example=example,
             signature=infer_signature(example, prediction_example),
-            code_path=[str(Path(__file__).with_name("inference.py"))],
+            code_path=[str(Path(inspect.getfile(ChurnProbabilityModel)))],
             pip_requirements=[
                 "mlflow==2.22.0",
                 "numpy>=1.26,<3",
