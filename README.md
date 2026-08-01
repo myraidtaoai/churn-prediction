@@ -31,6 +31,8 @@ databricks bundle deploy -t dev --var="warehouse_id=<warehouse-id>"
 
 Deployment packages the repository CSV and creates the schema and `landing` Volume. On the first run, `ingest_bronze` automatically copies the packaged CSV to the resolved Volume path. This correctly handles the schema prefix that development mode adds, so no manual `databricks fs cp` command is required.
 
+Pushes to `main` that pass CI are automatically validated, deployed to Dev, and exercised with the end-to-end workflow. Production deployment is manual, accepts only a commit SHA that passed the Dev deployment, and uses the protected `prod` GitHub environment for approval. Both stages authenticate with short-lived GitHub OIDC credentials. Complete the one-time environment and service-principal configuration in [Deployment and identity setup](docs/deployment.md).
+
 Run the complete workflow with one command:
 
 ```bash
@@ -49,7 +51,7 @@ To roll the Champion alias back to a previously validated registered-model versi
 run the manual rollback job with the target version:
 
 ```bash
-databricks bundle run churn_model_rollback -t dev --var="warehouse_id=<warehouse-id>" -- --target_version <model-version>
+databricks bundle run churn_model_rollback -t dev --var="warehouse_id=<warehouse-id>" --params target_version=<model-version>
 ```
 
 Rollback validates the model version, inference contract, and immutable candidate
