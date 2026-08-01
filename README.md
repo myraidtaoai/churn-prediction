@@ -39,6 +39,14 @@ Run the complete workflow with one command:
 databricks bundle run churn_end_to_end -t dev --var="warehouse_id=<warehouse-id>"
 ```
 
+Generate a reproducible daily customer-event batch in the managed landing Volume:
+
+```bash
+databricks bundle run churn_event_generator -t dev --var="warehouse_id=<warehouse-id>" --params event_date=2026-08-02,seed=20260801,drift_level=0.0
+```
+
+The generator reads the validated `telco_silver` snapshot and writes append-only JSONL under `landing/events/year=YYYY/month=MM/day=DD`. The same date, seed, and drift level always produce the same event IDs and payload; an identical rerun is a no-op, while a conflicting rewrite is rejected. Increase `drift_level` from `0.0` toward `1.0` to simulate more payment failures, support calls, complaints, plan changes, cancellations, higher charges, and reduced usage. Auto Loader ingestion is intentionally the next independent pipeline stage. See [Customer event generation](docs/event-generation.md) for the data contract, drift behavior, and verification query.
+
 For targeted reruns or troubleshooting, run the stage workflows in dependency order:
 
 ```bash
