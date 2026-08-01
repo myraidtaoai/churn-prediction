@@ -36,7 +36,7 @@ resources:
       dataset_schema: ${resources.schemas.churn_schema.name}
 
   jobs:
-    churn_pipeline:
+    churn_data_pipeline:
       name: ${bundle.target}-churn-data-pipeline
       description: Ingest Bronze data and produce validated Silver and Gold tables.
       max_concurrent_runs: 1
