@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import _path_helper  # noqa: F401 — adds churn_pipeline/ to sys.path
+
 import inspect
 from datetime import datetime, timezone
 from pathlib import Path
@@ -74,7 +76,8 @@ if pdf["churn_label"].nunique() != 2:
 feature_columns = [
     column
     for column in pdf.columns
-    if column not in {"customer_id", "churn", "churn_label"}
+    if column
+    not in {"customer_id", "churn", "churn_label", "snapshot_date", "_transformed_at"}
 ]
 X = pdf[feature_columns]
 y = pdf["churn_label"].astype(int)

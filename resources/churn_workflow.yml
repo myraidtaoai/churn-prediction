@@ -56,7 +56,7 @@ resources:
         - task_key: generate_customer_events
           environment_key: etl_v4
           spark_python_task:
-            python_file: "../data_generator/generate_events.py"
+            python_file: "../src/churn_pipeline/ingestion/generate_events.py"
             parameters:
               - --catalog
               - ${resources.schemas.churn_schema.catalog_name}
@@ -71,6 +71,30 @@ resources:
               - --drift-level
               - "{{job.parameters.drift_level}}"
 
+    churn_seed_bronze:
+      name: ${bundle.target}-churn-seed-bronze
+      description: One-time historical seed — load the bundled Telco CSV into Bronze.
+      max_concurrent_runs: 1
+      timeout_seconds: 3600
+      environments:
+        - environment_key: etl_v4
+          spec:
+            environment_version: "4"
+      tasks:
+        - task_key: ingest_bronze
+          environment_key: etl_v4
+          spark_python_task:
+            python_file: "../src/churn_pipeline/ingestion/ingest.py"
+            parameters:
+              - --catalog
+              - ${resources.schemas.churn_schema.catalog_name}
+              - --schema
+              - ${resources.schemas.churn_schema.name}
+              - --landing-file
+              - /Volumes/${resources.volumes.landing.catalog_name}/${resources.volumes.landing.schema_name}/${resources.volumes.landing.name}/${var.source_file_name}
+              - --bundled-source-file
+              - ${workspace.file_path}/data/${var.source_file_name}
+
     churn_data_pipeline:
       name: ${bundle.target}-churn-data-pipeline
       description: Ingest Bronze data and produce validated Silver and Gold tables.
@@ -84,29 +108,50 @@ resources:
           spec:
             environment_version: "4"
       tasks:
-        - task_key: ingest_bronze
+        - task_key: ingest_events
           environment_key: etl_v4
           spark_python_task:
-            python_file: "../src/churn_pipeline/ingest.py"
+            python_file: "../src/churn_pipeline/ingestion/ingest_events.py"
             parameters:
               - --catalog
               - ${resources.schemas.churn_schema.catalog_name}
               - --schema
               - ${resources.schemas.churn_schema.name}
-              - --landing-file
-              - /Volumes/${resources.volumes.landing.catalog_name}/${resources.volumes.landing.schema_name}/${resources.volumes.landing.name}/${var.source_file_name}
-              - --bundled-source-file
-              - ${workspace.file_path}/data/${var.source_file_name}
+              - --events-path
+              - /Volumes/${resources.volumes.landing.catalog_name}/${resources.volumes.landing.schema_name}/${resources.volumes.landing.name}/events
+              - --checkpoint-path
+              - /Volumes/${resources.volumes.landing.catalog_name}/${resources.volumes.landing.schema_name}/${resources.volumes.landing.name}/_checkpoints/event_ingest
         - task_key: transform_silver_and_gold
-          depends_on: [{task_key: ingest_bronze}]
+          depends_on: [{task_key: ingest_events}]
           environment_key: etl_v4
           spark_python_task:
-            python_file: "../src/churn_pipeline/transform.py"
+            python_file: "../src/churn_pipeline/transformation/transform.py"
             parameters:
               - --catalog
               - ${resources.schemas.churn_schema.catalog_name}
               - --schema
               - ${resources.schemas.churn_schema.name}
+        - task_key: build_features
+          depends_on: [{task_key: transform_silver_and_gold}]
+          environment_key: etl_v4
+          spark_python_task:
+            python_file: "../src/churn_pipeline/transformation/build_features.py"
+            parameters:
+              - --catalog
+              - ${resources.schemas.churn_schema.catalog_name}
+              - --schema
+              - ${resources.schemas.churn_schema.name}
+        - task_key: generate_labels
+          depends_on: [{task_key: build_features}]
+          environment_key: etl_v4
+          spark_python_task:
+            python_file: "../src/churn_pipeline/transformation/generate_labels.py"
+            parameters:
+              - --catalog
+              - ${resources.schemas.churn_schema.catalog_name}
+              - --schema
+              - ${resources.schemas.churn_schema.name}
+              
     churn_model_pipeline:
       name: ${bundle.target}-churn-model-pipeline
       description: Train a Candidate model and apply the Champion promotion policy.
@@ -128,7 +173,7 @@ resources:
         - task_key: train_and_register_model
           environment_key: ml_v4
           spark_python_task:
-            python_file: "../src/churn_pipeline/train.py"
+            python_file: "../src/churn_pipeline/modeling/train.py"
             parameters:
               - --catalog
               - ${resources.schemas.churn_schema.catalog_name}
@@ -144,7 +189,7 @@ resources:
             - task_key: train_and_register_model
           environment_key: ml_v4
           spark_python_task:
-            python_file: "../src/churn_pipeline/promote.py"
+            python_file: "../src/churn_pipeline/modeling/promote.py"
             parameters:
               - --catalog
               - ${resources.schemas.churn_schema.catalog_name}
@@ -173,7 +218,7 @@ resources:
         - task_key: batch_score_customers
           environment_key: ml_v4
           spark_python_task:
-            python_file: "../src/churn_pipeline/score.py"
+            python_file: "../src/churn_pipeline/modeling/score.py"
             parameters:
               - --catalog
               - ${resources.schemas.churn_schema.catalog_name}
@@ -202,7 +247,7 @@ resources:
         - task_key: rollback_champion
           environment_key: ml_v4
           spark_python_task:
-            python_file: "../src/churn_pipeline/rollback.py"
+            python_file: "../src/churn_pipeline/modeling/rollback.py"
             parameters:
               - --catalog
               - ${resources.schemas.churn_schema.catalog_name}

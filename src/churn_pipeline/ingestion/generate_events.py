@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import _path_helper  # noqa: F401 — adds churn_pipeline/ to sys.path
+
 import argparse
 import hashlib
 import json
@@ -12,40 +14,16 @@ from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-try:
-    from .customer_state import CustomerState
-except ImportError:  # Databricks executes this file directly as a task.
-    from customer_state import CustomerState
-
-SCHEMA_VERSION = 1
-EVENT_TYPES = frozenset(
-    {
-        "billing",
-        "cancellation",
-        "complaint",
-        "payment",
-        "plan_change",
-        "support_call",
-        "usage",
-    }
+from contracts import (
+    CONTRACT_VERSION as SCHEMA_VERSION,
 )
-EVENT_FIELDS = (
-    "schema_version",
-    "event_id",
-    "generation_id",
-    "event_type",
-    "event_timestamp",
-    "event_date",
-    "customer_id",
-    "amount",
-    "usage_gb",
-    "payment_status",
-    "support_topic",
-    "plan_from",
-    "plan_to",
-    "complaint_severity",
-    "cancellation_reason",
+from contracts import (
+    EVENT_TYPES as EVENT_TYPES,  # re-exported for tests and callers
 )
+from contracts import (
+    FIELD_NAME_TUPLE as EVENT_FIELDS,
+)
+from customer_state import CustomerState
 
 
 @dataclass(frozen=True)

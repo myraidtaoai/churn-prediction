@@ -8,7 +8,6 @@ include:
 sync:
   include:
     - src/**
-    - data_generator/**
     - data/WA_Fn-UseC_-Telco-Customer-Churn.csv
 
 variables:

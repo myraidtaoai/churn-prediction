@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import _path_helper  # noqa: F401 — adds churn_pipeline/ to sys.path
+
 from datetime import datetime, timezone
 
 import mlflow

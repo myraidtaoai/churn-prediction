@@ -1,9 +1,8 @@
 from datetime import date
 
 import pytest
-
-from data_generator.customer_state import CustomerState
-from data_generator.generate_events import (
+from customer_state import CustomerState
+from generate_events import (
     EVENT_FIELDS,
     EVENT_TYPES,
     GenerationConfig,
