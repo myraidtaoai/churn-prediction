@@ -176,9 +176,7 @@ else:
 
         key_cols = {"customer_id", "snapshot_date"}
         update_cols = [c for c in silver.columns if c not in key_cols]
-        set_clause = ", ".join(
-            f"target.`{c}` = source.`{c}`" for c in update_cols
-        )
+        set_clause = ", ".join(f"target.`{c}` = source.`{c}`" for c in update_cols)
         insert_cols = ", ".join(f"`{c}`" for c in silver.columns)
         insert_vals = ", ".join(f"source.`{c}`" for c in silver.columns)
 
