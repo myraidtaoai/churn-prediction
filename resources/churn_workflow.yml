@@ -34,6 +34,12 @@ resources:
       warehouse_id: ${var.warehouse_id}
       dataset_catalog: ${resources.schemas.churn_schema.catalog_name}
       dataset_schema: ${resources.schemas.churn_schema.name}
+    pipeline_observability:
+      display_name: Pipeline Observability
+      file_path: ../dashboards/pipeline_observability.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${resources.schemas.churn_schema.catalog_name}
+      dataset_schema: ${resources.schemas.churn_schema.name}
 
   jobs:
     churn_event_generator:
