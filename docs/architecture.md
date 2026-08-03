@@ -1,4 +1,4 @@
-sa# Architecture
+# Architecture
 
 A batch data platform on Databricks that ingests simulated customer events, refines them through a medallion architecture into point-in-time feature snapshots, and serves a governed churn model on top. Everything is deployed as a Databricks Asset Bundle and governed by Unity Catalog.
 
@@ -95,6 +95,7 @@ flowchart TD
 | Alias rollback | Built | `src/churn_pipeline/modeling/rollback.py` |
 | Distributed batch scoring | Built | `src/churn_pipeline/modeling/score.py`, `inference.py` |
 | Immutable prediction history + view | Built | `src/churn_pipeline/modeling/score.py` |
+| Historical backfill (features + labels) | Built | `churn_backfill_features` job, parameterized by `as_of_date` |
 | `data_quality_metrics` | Built | `src/churn_pipeline/transformation/quality.py` |
 | `pipeline_runs` | **Planned — 1.6** | |
 | Drift monitoring | **Planned — 2.3** | `src/churn_pipeline/transformation/monitor.py` |
@@ -134,13 +135,13 @@ Idempotency comes from the deterministic `event_id` (SHA-256 over the event's id
 ```mermaid
 flowchart LR
     DEV["Developer branch"] -->|PR| CI["GitHub Actions: ci.yml<br/>ruff · pytest · bundle validate"]
-    CI -->|merge to main| DD["deploy-dev.yml<br/>OIDC → dev target<br/>+ end-to-end run"]
-    DD -->|commit SHA| PD["deploy-prod.yml<br/>protected 'prod' environment<br/>manual approval"]
+    CI -->|merge to main| DD["deploy-dev.yml<br/>PAT auth → dev target<br/>+ end-to-end run"]
+    DD -->|commit SHA| PD["deploy-prod.yml<br/>manual trigger<br/>SHA verification"]
     PD --> PROD["prod target<br/>catalog=main schema=churn"]
     DD --> DEVT["dev target<br/>schema=churn_dev"]
 ```
 
-Both stages authenticate with short-lived GitHub OIDC credentials; no long-lived Databricks tokens exist in the repository or in GitHub secrets. Production accepts only a commit SHA that has already deployed successfully to dev. See [deployment.md](deployment.md).
+Both stages authenticate with a Databricks personal access token stored in GitHub secrets, compatible with Databricks Free Edition. Production accepts only a commit SHA that has already deployed successfully to dev. See [deployment.md](deployment.md).
 
 ## Failure and recovery
 
@@ -162,4 +163,4 @@ Both stages authenticate with short-lived GitHub OIDC credentials; no long-lived
 - [Rollback](rollback.md) — alias restore procedure and its limits
 - [Runbook](runbook.md) — per-job failure modes and first response
 - [Event generation](event-generation.md) — simulation contract and drift behavior
-- [Deployment](deployment.md) — OIDC and service-principal setup
+- [Deployment](deployment.md) — PAT authentication and CI/CD setup

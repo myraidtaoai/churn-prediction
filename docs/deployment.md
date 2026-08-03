@@ -1,50 +1,30 @@
 # Deployment and identity setup
 
-The repository deploys the same Databricks bundle through two controlled stages:
+The repository deploys the same Databricks bundle through two controlled stages using personal access token (PAT) authentication, compatible with Databricks Free Edition.
 
-1. `CI` tests every pull request and push to `main`.
+1. `CI` tests every pull request and push to `main` (ruff, pytest, bundle validate).
 2. A successful `CI` push to `main` automatically starts `Deploy Dev`.
 3. Dev validates and deploys the bundle, then runs `churn_end_to_end` as an integration smoke test.
 4. An operator manually starts `Deploy Production` with the full commit SHA from a successful Dev deployment and a deployment reason.
-5. The production workflow verifies that the exact SHA passed Dev, waits for the `prod` environment approval, validates the bundle, and deploys it. It does not run the production data pipeline automatically.
+5. The production workflow verifies that the exact SHA passed Dev, validates the bundle, and deploys it. It does not run the production data pipeline automatically.
 
-Both deployment workflows use GitHub OpenID Connect (OIDC), so no long-lived Databricks token is stored in GitHub.
+## 1. Create a Databricks personal access token
 
-## 1. Create the GitHub environments
+In your Databricks workspace, go to **Settings → Developer → Access tokens** and generate a new token. The token must have the `all-apis` scope. Copy the token value immediately — it cannot be retrieved later.
 
-In **Repository settings → Environments**, create environments named exactly `dev` and `prod`.
+## 2. Add GitHub secrets
 
-Add these environment variables to both environments, using the appropriate workspace values for each stage:
+In **Repository settings → Secrets and variables → Actions → Secrets**, create:
 
-| Variable | Value |
+| Secret | Value |
 | --- | --- |
-| `DATABRICKS_HOST` | Workspace URL, such as `https://dbc-...cloud.databricks.com` |
-| `DATABRICKS_CLIENT_ID` | Application/client ID of the Databricks service principal |
+| `DATABRICKS_HOST` | Workspace URL, e.g. `https://dbc-...cloud.databricks.com` |
+| `DATABRICKS_TOKEN` | The PAT created in step 1 |
 | `DATABRICKS_WAREHOUSE_ID` | SQL warehouse ID used by the dashboard |
 
-For `prod`, add at least one required reviewer in **Deployment protection rules**. Enable prevention of self-review if your GitHub plan supports it. Restrict deployment branches to `main` for another protection layer.
+All three secrets are used by both the Dev and Production deployment workflows.
 
-Do not create a `DATABRICKS_TOKEN` secret. The workflows explicitly use `DATABRICKS_AUTH_TYPE=github-oidc`.
-
-## 2. Configure Databricks workload identity federation
-
-Create a Databricks service principal for automation, assign it to the workspace, then create a federation policy for each GitHub environment. Use:
-
-- Issuer: `https://token.actions.githubusercontent.com`
-- Audience: your Databricks account ID
-- Dev subject: `repo:myraidtaoai/churn-prediction:environment:dev`
-- Production subject: `repo:myraidtaoai/churn-prediction:environment:prod`
-
-The subjects must match the GitHub owner, repository, and environment names exactly. Databricks documents both account-console and CLI methods in [Enable workload identity federation in GitHub Actions](https://docs.databricks.com/gcp/en/dev-tools/auth/provider-github).
-
-Grant the service principal only the permissions required by this bundle:
-
-- Workspace access and permission to deploy jobs, an MLflow experiment, and a dashboard.
-- `USE CATALOG` and permission to create/use the target schemas and their tables, Volume, and registered model.
-- `CAN USE` on the configured SQL warehouse.
-- Read/write access to the bundle's landing Volume and model aliases.
-
-Use separate service principals for Dev and Production if the two environments use different workspaces or access boundaries. In that case, set each environment's `DATABRICKS_CLIENT_ID` to its own principal.
+Optionally, set the repository variable `DATABRICKS_ENABLED=true` under **Settings → Secrets and variables → Actions → Variables** to enable the `bundle validate` CI job.
 
 ## 3. Test Dev deployment
 
@@ -63,16 +43,16 @@ Open **Actions → Deploy Production → Run workflow** and provide:
 - `release_sha`: the full SHA from the successful `Deploy Dev` run
 - `deployment_reason`: the release/change identifier and reason
 
-The workflow checks GitHub Actions for a successful Dev deployment of that SHA. GitHub then pauses the job for the required `prod` reviewer before exposing environment variables and obtaining a Production OIDC token. GitHub's [deployment environments documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments) explains reviewer and branch protection settings.
+The workflow checks GitHub Actions for a successful Dev deployment of that SHA. Production deployment ends with `databricks bundle summary`. Run production workflows separately after reviewing the deployed resources; this prevents a deployment approval from also authorizing a production data mutation.
 
-Production deployment ends with `databricks bundle summary`. Run production workflows separately after reviewing the deployed resources; this prevents a deployment approval from also authorizing a production data mutation.
+## Free Edition limitations
+
+Databricks Free Edition does not support OIDC workload identity federation, service principals, or multiple workspaces. The deployment uses a single PAT stored in GitHub secrets. If you upgrade to a paid tier, consider migrating to OIDC authentication for short-lived credentials without stored secrets — see [Databricks CI/CD with GitHub Actions](https://docs.databricks.com/aws/en/dev-tools/ci-cd/github).
 
 ## Troubleshooting
 
-- **OIDC authentication fails:** confirm the service-principal client ID, issuer, audience, and exact environment-specific subject. Confirm the workflow has `id-token: write`.
+- **Authentication fails with scope error:** regenerate the PAT with the `all-apis` scope. Tokens created via the UI default to a narrower scope.
 - **No successful Deploy Dev run exists:** enter a full SHA from a completed green `Deploy Dev` run, not merely a green `CI` run.
-- **Bundle validation reports `warehouse_id` missing:** define `DATABRICKS_WAREHOUSE_ID` on that GitHub environment.
-- **The Production job does not pause:** configure a required reviewer on the `prod` GitHub environment before using it.
-- **Databricks returns permission errors:** compare the failing resource with the least-privilege grants listed above; do not replace OIDC with a personal access token.
-
-The workflow structure follows Databricks' [CI/CD with GitHub Actions guidance](https://docs.databricks.com/aws/en/dev-tools/ci-cd/github).
+- **Bundle validation reports `warehouse_id` missing:** add `DATABRICKS_WAREHOUSE_ID` to GitHub secrets, and set the `DATABRICKS_ENABLED` repository variable to `true`.
+- **Deploy Dev does not trigger after CI:** confirm CI ran on a `push` to `main`, not just a `pull_request`. The `workflow_run` trigger only fires for pushes.
+- **Databricks returns permission errors:** confirm the PAT belongs to a user with workspace access and permissions to manage jobs, schemas, tables, the Volume, the MLflow experiment, and the registered model.
