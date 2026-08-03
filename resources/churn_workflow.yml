@@ -151,7 +151,46 @@ resources:
               - ${resources.schemas.churn_schema.catalog_name}
               - --schema
               - ${resources.schemas.churn_schema.name}
-              
+
+    churn_backfill_features:
+      name: ${bundle.target}-churn-backfill-features
+      description: Build features and labels for a single historical as_of_date.
+      max_concurrent_runs: 3
+      timeout_seconds: 3600
+      parameters:
+        - name: as_of_date
+          default: ""
+
+      environments:
+        - environment_key: etl_v4
+          spec:
+            environment_version: "4"
+
+      tasks:
+        - task_key: build_features
+          environment_key: etl_v4
+          spark_python_task:
+            python_file: "../src/churn_pipeline/transformation/build_features.py"
+            parameters:
+              - --catalog
+              - ${resources.schemas.churn_schema.catalog_name}
+              - --schema
+              - ${resources.schemas.churn_schema.name}
+              - --as-of-date
+              - "{{job.parameters.as_of_date}}"
+        - task_key: generate_labels
+          depends_on: [{task_key: build_features}]
+          environment_key: etl_v4
+          spark_python_task:
+            python_file: "../src/churn_pipeline/transformation/generate_labels.py"
+            parameters:
+              - --catalog
+              - ${resources.schemas.churn_schema.catalog_name}
+              - --schema
+              - ${resources.schemas.churn_schema.name}
+              - --as-of-date
+              - "{{job.parameters.as_of_date}}"
+
     churn_model_pipeline:
       name: ${bundle.target}-churn-model-pipeline
       description: Train a Candidate model and apply the Champion promotion policy.
