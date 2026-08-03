@@ -34,15 +34,39 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: pytest
 
-  validate-bundle:
-    name: Databricks bundle validate
-    if: vars.DATABRICKS_ENABLED == 'true'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run Ruff
+        run: |
+          ruff format --check src tests
+          ruff check src tests --output-format=github
+
+      - name: Run tests
+        run: |
+          python -m pytest
+
+  bundle-validate:
+    name: Bundle dry-run validate
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only run when Databricks secrets are configured (skip on forks).
+    if: vars.DATABRICKS_HOST != ''
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_WAREHOUSE_ID: ${{ vars.DATABRICKS_WAREHOUSE_ID }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: databricks/setup-cli@main
-      - run: databricks bundle validate
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          BUNDLE_VAR_warehouse_id: ${{ secrets.DATABRICKS_WAREHOUSE_ID }}
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate Dev bundle
+        run: >-
+          databricks bundle validate -t dev
+          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
