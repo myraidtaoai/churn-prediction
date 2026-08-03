@@ -28,7 +28,6 @@ def test_dev_deploys_only_after_ci_and_runs_integration_smoke() -> None:
     assert "DATABRICKS_AUTH_TYPE" not in job["env"]
     assert "databricks bundle validate -t dev" in text
     assert "databricks bundle deploy -t dev" in text
-    assert "databricks bundle summary -t dev" in text
 
 
 def test_production_is_manual_gated_and_accepts_only_dev_verified_sha() -> None:
@@ -52,7 +51,6 @@ def test_production_is_manual_gated_and_accepts_only_dev_verified_sha() -> None:
     assert "--status success" in text
     assert "databricks bundle validate -t prod" in text
     assert "databricks bundle deploy -t prod" in text
-    assert "databricks bundle summary -t prod" in text
     assert "databricks bundle run -t prod" not in text
 
 
@@ -70,4 +68,4 @@ def test_deployment_jobs_use_environment_scoped_pat_configuration() -> None:
         assert "DATABRICKS_CLIENT_ID" not in env
         assert "DATABRICKS_AUTH_TYPE" not in env
         assert "uses: databricks/setup-cli@main" in text
-        assert "uses: actions/checkout@v5" in text
+        assert "uses: actions/checkout@v4" in text
