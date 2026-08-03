@@ -85,12 +85,13 @@ def test_end_to_end_job_orchestrates_stage_jobs_in_order():
     )
 
 
-def test_only_orchestrator_owns_the_weekly_schedule():
+def test_scheduled_jobs():
     jobs = load_jobs()
     scheduled_jobs = {job_key for job_key, job in jobs.items() if "schedule" in job}
 
-    assert scheduled_jobs == {"churn_end_to_end"}
-    assert jobs["churn_end_to_end"]["schedule"]["pause_status"] == "PAUSED"
+    assert scheduled_jobs == {"churn_event_generator", "churn_end_to_end"}
+    assert jobs["churn_event_generator"]["schedule"]["pause_status"] == "UNPAUSED"
+    assert jobs["churn_end_to_end"]["schedule"]["pause_status"] == "UNPAUSED"
 
 
 def test_rollback_job_is_manual_and_accepts_a_target_version():
@@ -112,10 +113,10 @@ def test_rollback_job_is_manual_and_accepts_a_target_version():
     ]
 
 
-def test_event_generator_is_manual_parameterized_and_volume_backed():
+def test_event_generator_is_scheduled_parameterized_and_volume_backed():
     generator = load_jobs()["churn_event_generator"]
 
-    assert "schedule" not in generator
+    assert generator["schedule"]["quartz_cron_expression"] == "0 0 5 * * ?"
     assert generator["max_concurrent_runs"] == 1
     assert generator["parameters"] == [
         {"name": "event_date", "default": ""},

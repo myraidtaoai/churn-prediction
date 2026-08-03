@@ -47,6 +47,10 @@ resources:
       description: Generate a deterministic daily customer-event batch in the landing Volume.
       max_concurrent_runs: 1
       timeout_seconds: 1800
+      schedule:
+        quartz_cron_expression: "0 0 5 * * ?"
+        timezone_id: America/Toronto
+        pause_status: UNPAUSED
       parameters:
         - name: event_date
           default: ""
@@ -333,9 +337,9 @@ resources:
       max_concurrent_runs: 1
       timeout_seconds: 18000
       schedule:
-        quartz_cron_expression: "0 0 6 ? * MON"
+        quartz_cron_expression: "0 0 6 * * ?"
         timezone_id: America/Toronto
-        pause_status: PAUSED
+        pause_status: UNPAUSED
       tasks:
         - task_key: run_data_pipeline
           run_job_task:
