@@ -234,7 +234,20 @@ def generate_events(
     ]
     event_ids = [event["event_id"] for event in events]
     if len(event_ids) != len(set(event_ids)):
-        raise RuntimeError("Generated duplicate event_id values")
+        from collections import Counter
+
+        dupes = [eid for eid, cnt in Counter(event_ids).items() if cnt > 1]
+        sample = dupes[:3]
+        dupe_details = [
+            (e["customer_id"], e["event_type"])
+            for e in events
+            if e["event_id"] in sample
+        ]
+        raise RuntimeError(
+            f"Generated {len(dupes)} duplicate event_id(s) from "
+            f"{len(events)} events / {len(set(e['customer_id'] for e in events))} "
+            f"unique customers. Sample duplicates: {dupe_details}"
+        )
     return sorted(
         events,
         key=lambda item: (
@@ -338,13 +351,26 @@ def main() -> None:
     if missing:
         raise ValueError(f"telco_silver is missing required columns: {missing}")
 
-    rows = source.select(*sorted(required)).limit(args.max_customers + 1).collect()
+    rows = (
+        source.select(*sorted(required))
+        .dropDuplicates(["customer_id"])
+        .limit(args.max_customers + 1)
+        .collect()
+    )
     if len(rows) > args.max_customers:
         raise ValueError(
             f"Customer snapshot exceeds max-customers={args.max_customers}; "
             "partition the generator before increasing this safety limit."
         )
-    states = [CustomerState.from_mapping(row.asDict(recursive=True)) for row in rows]
+    all_states = [
+        CustomerState.from_mapping(row.asDict(recursive=True)) for row in rows
+    ]
+    seen_ids: set[str] = set()
+    states: list[CustomerState] = []
+    for s in all_states:
+        if s.customer_id not in seen_ids:
+            seen_ids.add(s.customer_id)
+            states.append(s)
     if not states:
         raise ValueError("telco_silver is empty; no customer events were generated")
 
