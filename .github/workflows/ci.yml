@@ -43,3 +43,26 @@ jobs:
       - name: Run tests
         run: |
           python -m pytest
+
+  bundle-validate:
+    name: Bundle dry-run validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only run when Databricks secrets are configured (skip on forks).
+    if: vars.DATABRICKS_HOST != ''
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_WAREHOUSE_ID: ${{ vars.DATABRICKS_WAREHOUSE_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate Dev bundle
+        run: >-
+          databricks bundle validate -t dev
+          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
