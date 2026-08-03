@@ -23,13 +23,12 @@ def test_dev_deploys_only_after_ci_and_runs_integration_smoke() -> None:
 
     assert triggers["workflow_run"]["workflows"] == ["CI"]
     assert "workflow_dispatch" in triggers
-    assert workflow["permissions"] == {"contents": "read", "id-token": "write"}
+    assert workflow["permissions"] == {"contents": "read"}
     assert job["environment"] == "dev"
-    assert job["env"]["DATABRICKS_AUTH_TYPE"] == "github-oidc"
+    assert "DATABRICKS_AUTH_TYPE" not in job["env"]
     assert "databricks bundle validate -t dev" in text
     assert "databricks bundle deploy -t dev" in text
-    assert "databricks bundle run -t dev" in text
-    assert "churn_end_to_end" in text
+    assert "databricks bundle summary -t dev" in text
 
 
 def test_production_is_manual_gated_and_accepts_only_dev_verified_sha() -> None:
@@ -44,11 +43,10 @@ def test_production_is_manual_gated_and_accepts_only_dev_verified_sha() -> None:
     assert workflow["permissions"] == {
         "actions": "read",
         "contents": "read",
-        "id-token": "write",
     }
     assert job["needs"] == "verify-release"
     assert job["environment"] == "prod"
-    assert job["env"]["DATABRICKS_AUTH_TYPE"] == "github-oidc"
+    assert "DATABRICKS_AUTH_TYPE" not in job["env"]
     assert "gh run list" in text
     assert "--workflow deploy-dev.yml" in text
     assert "--status success" in text
@@ -58,7 +56,7 @@ def test_production_is_manual_gated_and_accepts_only_dev_verified_sha() -> None:
     assert "databricks bundle run -t prod" not in text
 
 
-def test_deployment_jobs_use_environment_scoped_oidc_configuration() -> None:
+def test_deployment_jobs_use_environment_scoped_pat_configuration() -> None:
     for filename, job_name in (
         ("deploy-dev.yml", "deploy-dev"),
         ("deploy-prod.yml", "deploy-production"),
@@ -67,7 +65,9 @@ def test_deployment_jobs_use_environment_scoped_oidc_configuration() -> None:
         env = workflow["jobs"][job_name]["env"]
 
         assert env["DATABRICKS_HOST"] == "${{ vars.DATABRICKS_HOST }}"
-        assert env["DATABRICKS_CLIENT_ID"] == "${{ vars.DATABRICKS_CLIENT_ID }}"
+        assert env["DATABRICKS_TOKEN"] == "${{ secrets.DATABRICKS_TOKEN }}"
         assert env["DATABRICKS_WAREHOUSE_ID"] == "${{ vars.DATABRICKS_WAREHOUSE_ID }}"
+        assert "DATABRICKS_CLIENT_ID" not in env
+        assert "DATABRICKS_AUTH_TYPE" not in env
         assert "uses: databricks/setup-cli@main" in text
         assert "uses: actions/checkout@v5" in text

@@ -15,7 +15,6 @@ on:
 permissions:
   actions: read
   contents: read
-  id-token: write
 
 concurrency:
   group: deploy-production
@@ -55,9 +54,8 @@ jobs:
     timeout-minutes: 30
     environment: prod
     env:
-      DATABRICKS_AUTH_TYPE: github-oidc
       DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
       DATABRICKS_WAREHOUSE_ID: ${{ vars.DATABRICKS_WAREHOUSE_ID }}
 
     steps:
@@ -72,7 +70,7 @@ jobs:
       - name: Check deployment configuration
         run: |
           test -n "${DATABRICKS_HOST}"
-          test -n "${DATABRICKS_CLIENT_ID}"
+          test -n "${DATABRICKS_TOKEN}"
           test -n "${DATABRICKS_WAREHOUSE_ID}"
           databricks current-user me
 
