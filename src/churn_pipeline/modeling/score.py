@@ -9,13 +9,17 @@ from datetime import datetime, timezone
 import mlflow
 import mlflow.models
 import mlflow.pyfunc
+import json
+
 from common import base_parser, get_spark, table
 from inference import INFERENCE_CONTRACT_TAG, INFERENCE_CONTRACT_VERSION
+from ops.run_logger import log_run
 from mlflow.exceptions import MlflowException
 from mlflow_compat import create_spark_udf_with_runtime_compat
 from pyspark.sql import functions as F
 
 spark = get_spark()
+_run_started = datetime.now(timezone.utc)
 parser = base_parser("Score all customers with the registered Champion model.")
 parser.add_argument("--model-name", required=True)
 parser.add_argument("--scoring-run-id", required=True)
@@ -184,4 +188,25 @@ spark.sql(
     INNER JOIN latest_run
       ON history.scoring_run_id = latest_run.scoring_run_id
     """
+)
+
+_scored_count = spark.table(current_scores_view).count()
+_summary = {
+    "status": "completed",
+    "scoring_run_id": args.scoring_run_id,
+    "model_version": champion_version,
+    "customers_scored": _scored_count,
+}
+print(json.dumps(_summary, sort_keys=True))
+
+log_run(
+    spark=spark,
+    catalog=args.catalog,
+    schema=args.schema,
+    task_name="batch_score",
+    run_id=args.scoring_run_id,
+    status="succeeded",
+    started_at=_run_started,
+    finished_at=datetime.now(timezone.utc),
+    output_summary=_summary,
 )

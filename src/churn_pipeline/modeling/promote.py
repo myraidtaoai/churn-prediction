@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 import mlflow
 from common import base_parser, get_spark, table
+from ops.run_logger import log_run
 from inference import INFERENCE_CONTRACT_TAG, INFERENCE_CONTRACT_VERSION
 from mlflow.exceptions import MlflowException
 from promotion_policy import (
@@ -18,6 +19,7 @@ from promotion_policy import (
 from pyspark.sql import functions as F
 
 spark = get_spark()
+_run_started = datetime.now(timezone.utc)
 
 parser = base_parser("Evaluate and promote the Candidate model.")
 parser.add_argument("--model-name", required=True)
@@ -176,7 +178,26 @@ audit_schema = """
 
 require_deployable_champion(decision, champion_version)
 
-print(
+_decision_msg = (
     f"Promotion decision for Candidate version {candidate_version}: "
     f"{audit_row['decision']} — {decision.reason}"
+)
+print(_decision_msg)
+
+_summary = {
+    "status": "completed",
+    "candidate_version": candidate_version,
+    "decision": audit_row["decision"],
+    "reason": decision.reason,
+}
+log_run(
+    spark=spark,
+    catalog=args.catalog,
+    schema=args.schema,
+    task_name="promote",
+    run_id=f"promote-v{candidate_version}",
+    status="succeeded",
+    started_at=_run_started,
+    finished_at=datetime.now(timezone.utc),
+    output_summary=_summary,
 )

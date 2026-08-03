@@ -26,6 +26,7 @@ import json
 from datetime import date, datetime, timedelta, timezone
 
 from common import get_spark, table
+from ops.run_logger import log_run
 from pyspark.sql import functions as F
 
 spark = get_spark()
@@ -50,14 +51,16 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+_run_started = datetime.now(timezone.utc)
+
 as_of_date: date = (
     date.fromisoformat(args.as_of_date)
     if args.as_of_date.strip()
-    else datetime.now(timezone.utc).date() - timedelta(days=1)
+    else _run_started.date() - timedelta(days=1)
 )
 label_horizon = args.label_horizon_days
 maturity_date = as_of_date + timedelta(days=label_horizon)
-today = datetime.now(timezone.utc).date()
+today = _run_started.date()
 
 # ── Guard: refuse to write immature labels ───────────────────────────
 if today < maturity_date:
@@ -72,6 +75,17 @@ if today < maturity_date:
             },
             sort_keys=True,
         )
+    )
+    log_run(
+        spark=spark,
+        catalog=args.catalog,
+        schema=args.schema,
+        task_name="generate_labels",
+        run_id=f"labels-{as_of_date.isoformat()}",
+        status="succeeded",
+        started_at=_run_started,
+        finished_at=datetime.now(timezone.utc),
+        output_summary={"status": "skipped", "reason": "label not yet mature"},
     )
 else:
     # ── Determine churn outcome ──────────────────────────────────────
@@ -111,6 +125,20 @@ else:
                 },
                 sort_keys=True,
             )
+        )
+        log_run(
+            spark=spark,
+            catalog=args.catalog,
+            schema=args.schema,
+            task_name="generate_labels",
+            run_id=f"labels-{as_of_date.isoformat()}",
+            status="succeeded",
+            started_at=_run_started,
+            finished_at=datetime.now(timezone.utc),
+            output_summary={
+                "status": "skipped",
+                "reason": "no feature snapshot",
+            },
         )
     else:
         # Left join: customers without a cancellation get churned = 0.
@@ -170,4 +198,20 @@ else:
                 },
                 sort_keys=True,
             )
+        )
+        log_run(
+            spark=spark,
+            catalog=args.catalog,
+            schema=args.schema,
+            task_name="generate_labels",
+            run_id=f"labels-{as_of_date.isoformat()}",
+            status="succeeded",
+            started_at=_run_started,
+            finished_at=datetime.now(timezone.utc),
+            output_summary={
+                "status": "completed",
+                "as_of_date": as_of_date.isoformat(),
+                "total_customers": total_count,
+                "churned": churn_count,
+            },
         )

@@ -28,6 +28,7 @@ import json
 from datetime import datetime, timezone
 
 from common import get_spark, table
+from ops.run_logger import log_run
 from contracts import build_spark_schema
 from pyspark.sql import functions as F
 
@@ -75,7 +76,8 @@ events = (
 )
 
 # ── Enrich with ingestion metadata ────────────────────────────────────
-ingestion_ts = datetime.now(timezone.utc)
+_run_started = datetime.now(timezone.utc)
+ingestion_ts = _run_started
 enriched = (
     events
     # Parse the ISO timestamp string into a proper timestamp column.
@@ -117,15 +119,23 @@ if "_rescued_data" in spark.table(bronze_table).columns:
         spark.table(bronze_table).filter(F.col("_rescued_data").isNotNull()).count()
     )
 
-print(
-    json.dumps(
-        {
-            "status": "completed",
-            "bronze_table": bronze_table,
-            "total_rows": row_count,
-            "rescued_rows": rescued_count,
-            "checkpoint": args.checkpoint_path,
-        },
-        sort_keys=True,
-    )
+_summary = {
+    "status": "completed",
+    "bronze_table": bronze_table,
+    "total_rows": row_count,
+    "rescued_rows": rescued_count,
+    "checkpoint": args.checkpoint_path,
+}
+print(json.dumps(_summary, sort_keys=True))
+
+log_run(
+    spark=spark,
+    catalog=args.catalog,
+    schema=args.schema,
+    task_name="ingest_events",
+    run_id=f"ingest-events-{_run_started.date().isoformat()}",
+    status="succeeded",
+    started_at=_run_started,
+    finished_at=datetime.now(timezone.utc),
+    output_summary=_summary,
 )

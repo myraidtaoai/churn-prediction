@@ -97,7 +97,7 @@ flowchart TD
 | Immutable prediction history + view | Built | `src/churn_pipeline/modeling/score.py` |
 | Historical backfill (features + labels) | Built | `churn_backfill_features` job, parameterized by `as_of_date` |
 | `data_quality_metrics` | Built | `src/churn_pipeline/transformation/quality.py` |
-| `pipeline_runs` | **Planned — 1.6** | |
+| `pipeline_runs` | Built | `src/churn_pipeline/ops/run_logger.py` |
 | Drift monitoring | **Planned — 2.3** | `src/churn_pipeline/transformation/monitor.py` |
 | Dashboard | Built | `dashboards/` |
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import _path_helper  # noqa: F401 — adds churn_pipeline/ to sys.path
 
 import inspect
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +15,7 @@ import numpy as np
 import pandas as pd
 import shap
 from common import base_parser, get_spark, table
+from ops.run_logger import log_run
 from imblearn.ensemble import BalancedRandomForestClassifier
 from inference import (
     INFERENCE_CONTRACT_TAG,
@@ -62,6 +64,7 @@ def positive_class_shap_values(classifier, matrix) -> np.ndarray:
 
 
 spark = get_spark()
+_run_started = datetime.now(timezone.utc)
 parser = base_parser("Train and register the best churn classifier.")
 parser.add_argument("--experiment-name", required=True)
 parser.add_argument("--model-name", required=True)
@@ -367,4 +370,25 @@ metrics_row = {
     .mode("append")
     .option("mergeSchema", "true")
     .saveAsTable(table(args.catalog, args.schema, "model_candidate_metrics"))
+)
+
+_summary = {
+    "status": "completed",
+    "model_version": str(registered.version),
+    "algorithm": best["algorithm"],
+    "validation_pr_auc": round(best["validation_pr_auc"], 4),
+    "candidates_evaluated": len(comparison),
+}
+print(json.dumps(_summary, sort_keys=True))
+
+log_run(
+    spark=spark,
+    catalog=args.catalog,
+    schema=args.schema,
+    task_name="train",
+    run_id=best["run_id"],
+    status="succeeded",
+    started_at=_run_started,
+    finished_at=datetime.now(timezone.utc),
+    output_summary=_summary,
 )

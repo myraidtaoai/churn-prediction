@@ -19,6 +19,7 @@ import json
 from datetime import date, datetime, timezone
 
 from common import get_spark, table
+from ops.run_logger import log_run
 from pyspark.sql import functions as F
 from quality import SILVER_RULES, apply_quality_rules
 
@@ -45,10 +46,12 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+_run_started = datetime.now(timezone.utc)
+
 snapshot_date = (
     date.fromisoformat(args.snapshot_date)
     if args.snapshot_date.strip()
-    else datetime.now(timezone.utc).date()
+    else _run_started.date()
 )
 run_id = args.run_id.strip() or f"transform-{snapshot_date.isoformat()}"
 
@@ -205,15 +208,23 @@ summary.write.format("delta").mode("overwrite").option(
     "overwriteSchema", "true"
 ).saveAsTable(table(args.catalog, args.schema, "churn_summary"))
 
-print(
-    json.dumps(
-        {
-            "status": merge_status,
-            "snapshot_date": snapshot_date.isoformat(),
-            "silver_rows": row_count,
-            "quarantined_rows": quarantined_count,
-            "quality_rules_evaluated": len(quality_metrics),
-        },
-        sort_keys=True,
-    )
+_summary = {
+    "status": merge_status,
+    "snapshot_date": snapshot_date.isoformat(),
+    "silver_rows": row_count,
+    "quarantined_rows": quarantined_count,
+    "quality_rules_evaluated": len(quality_metrics),
+}
+print(json.dumps(_summary, sort_keys=True))
+
+log_run(
+    spark=spark,
+    catalog=args.catalog,
+    schema=args.schema,
+    task_name="transform",
+    run_id=run_id,
+    status="succeeded",
+    started_at=_run_started,
+    finished_at=datetime.now(timezone.utc),
+    output_summary=_summary,
 )
