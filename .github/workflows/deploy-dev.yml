@@ -26,7 +26,6 @@ jobs:
       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    environment: dev
     env:
       DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
@@ -34,7 +33,7 @@ jobs:
 
     steps:
       - name: Check out the verified revision
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
@@ -49,9 +48,7 @@ jobs:
           databricks current-user me
 
       - name: Validate Dev bundle
-        run: >-
-          databricks bundle validate -t dev
-          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
+        run: databricks bundle validate -t dev
 
       - name: Deploy Dev bundle
         run: >-

@@ -70,4 +70,4 @@ def test_deployment_jobs_use_environment_scoped_pat_configuration() -> None:
         assert "DATABRICKS_CLIENT_ID" not in env
         assert "DATABRICKS_AUTH_TYPE" not in env
         assert "uses: databricks/setup-cli@main" in text
-        assert "uses: actions/checkout@v5" in text
+        assert "uses: actions/checkout@v4" in text
