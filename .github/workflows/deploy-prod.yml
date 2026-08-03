@@ -37,6 +37,7 @@ jobs:
             exit 1
           fi
           successful_runs="$(gh run list \
+            --repo "${{ github.repository }}" \
             --workflow deploy-dev.yml \
             --commit "${RELEASE_SHA}" \
             --status success \
