@@ -32,6 +32,7 @@ import json
 from datetime import date, datetime, timedelta, timezone
 
 from common import get_spark, table
+from ops.run_logger import log_run
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
 
@@ -49,10 +50,12 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+_run_started = datetime.now(timezone.utc)
+
 as_of_date: date = (
     date.fromisoformat(args.as_of_date)
     if args.as_of_date.strip()
-    else datetime.now(timezone.utc).date() - timedelta(days=1)
+    else _run_started.date() - timedelta(days=1)
 )
 
 # ── Load events up to (and including) as_of_date ─────────────────────
@@ -309,15 +312,23 @@ feature_count = len(
     ]
 )
 
-print(
-    json.dumps(
-        {
-            "status": "completed",
-            "gold_table": gold_table,
-            "as_of_date": as_of_date.isoformat(),
-            "customers": row_count,
-            "features": feature_count,
-        },
-        sort_keys=True,
-    )
+_summary = {
+    "status": "completed",
+    "gold_table": gold_table,
+    "as_of_date": as_of_date.isoformat(),
+    "customers": row_count,
+    "features": feature_count,
+}
+print(json.dumps(_summary, sort_keys=True))
+
+log_run(
+    spark=spark,
+    catalog=args.catalog,
+    schema=args.schema,
+    task_name="build_features",
+    run_id=f"build-features-{as_of_date.isoformat()}",
+    status="succeeded",
+    started_at=_run_started,
+    finished_at=datetime.now(timezone.utc),
+    output_summary=_summary,
 )
