@@ -31,6 +31,11 @@ def test_dashboard_queries_promotion_history():
     assert "model_promotion_history" in text
 
 
+def test_dashboard_queries_drift_metrics():
+    text = DASHBOARD_PATH.read_text(encoding="utf-8")
+    assert "drift_metrics" in text
+
+
 def test_all_datasets_referenced_by_widgets():
     dashboard = json.loads(DASHBOARD_PATH.read_text(encoding="utf-8"))
     dataset_names = {ds["name"] for ds in dashboard["datasets"]}

@@ -13,6 +13,7 @@ EXPECTED_JOBS = {
     "churn_model_pipeline",
     "churn_model_rollback",
     "churn_batch_score",
+    "churn_drift_monitor",
     "churn_end_to_end",
 }
 
