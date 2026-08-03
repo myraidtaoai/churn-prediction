@@ -48,10 +48,11 @@ jobs:
           fi
 
   deploy-production:
-    name: Deploy Production
+    name: Approve and deploy Production
     needs: verify-release
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: prod
     env:
       DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
@@ -59,7 +60,7 @@ jobs:
 
     steps:
       - name: Check out the Dev-verified revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.release_sha }}
 
@@ -74,10 +75,16 @@ jobs:
           databricks current-user me
 
       - name: Validate Production bundle
-        run: databricks bundle validate -t prod
+        run: >-
+          databricks bundle validate -t prod
+          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
 
       - name: Deploy Production bundle
-        run: databricks bundle deploy -t prod
+        run: >-
+          databricks bundle deploy -t prod
+          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
 
       - name: Summarize Production deployment
-        run: databricks bundle summary -t prod
+        run: >-
+          databricks bundle summary -t prod
+          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
