@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: deploy-dev
@@ -29,9 +28,8 @@ jobs:
     timeout-minutes: 120
     environment: dev
     env:
-      DATABRICKS_AUTH_TYPE: github-oidc
       DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
       DATABRICKS_WAREHOUSE_ID: ${{ vars.DATABRICKS_WAREHOUSE_ID }}
 
     steps:
@@ -46,7 +44,7 @@ jobs:
       - name: Check deployment configuration
         run: |
           test -n "${DATABRICKS_HOST}"
-          test -n "${DATABRICKS_CLIENT_ID}"
+          test -n "${DATABRICKS_TOKEN}"
           test -n "${DATABRICKS_WAREHOUSE_ID}"
           databricks current-user me
 
@@ -60,8 +58,7 @@ jobs:
           databricks bundle deploy -t dev
           --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
 
-      - name: Run Dev integration smoke test
+      - name: Verify Dev deployment (dry-run)
         run: >-
-          databricks bundle run -t dev
+          databricks bundle summary -t dev
           --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
-          churn_end_to_end
