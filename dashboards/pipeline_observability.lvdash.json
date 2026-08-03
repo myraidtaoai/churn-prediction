@@ -133,6 +133,37 @@
         "ORDER BY evaluated_at DESC\n",
         "LIMIT 20"
       ]
+    },
+    {
+      "displayName": "Drift summary (latest snapshot)",
+      "name": "drift_summary",
+      "queryLines": [
+        "SELECT feature_name, feature_type, psi, ks_statistic, alert_level, baseline_mean, current_mean, baseline_count, current_count\n",
+        "FROM drift_metrics\n",
+        "WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM drift_metrics)\n",
+        "ORDER BY psi DESC"
+      ]
+    },
+    {
+      "displayName": "Drift alerts count",
+      "name": "drift_alerts",
+      "queryLines": [
+        "SELECT alert_level, COUNT(*) AS features\n",
+        "FROM drift_metrics\n",
+        "WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM drift_metrics)\n",
+        "GROUP BY alert_level\n",
+        "ORDER BY CASE alert_level WHEN 'significant' THEN 1 WHEN 'moderate' THEN 2 ELSE 3 END"
+      ]
+    },
+    {
+      "displayName": "PSI trend over time",
+      "name": "drift_trend",
+      "queryLines": [
+        "SELECT snapshot_date, feature_name, psi, alert_level\n",
+        "FROM drift_metrics\n",
+        "WHERE feature_type IN ('numeric', 'prediction')\n",
+        "ORDER BY snapshot_date, feature_name"
+      ]
     }
   ],
   "pages": [
@@ -140,7 +171,12 @@
       "displayName": "Pipeline Health",
       "layout": [
         {
-          "position": { "height": 2, "width": 6, "x": 0, "y": 0 },
+          "position": {
+            "height": 2,
+            "width": 6,
+            "x": 0,
+            "y": 0
+          },
           "widget": {
             "multilineTextboxSpec": {
               "lines": [
@@ -151,7 +187,12 @@
           }
         },
         {
-          "position": { "height": 2, "width": 2, "x": 0, "y": 2 },
+          "position": {
+            "height": 2,
+            "width": 2,
+            "x": 0,
+            "y": 2
+          },
           "widget": {
             "name": "counter_total_runs",
             "queries": [
@@ -161,23 +202,37 @@
                   "datasetName": "total_runs",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`total_runs`", "name": "total_runs" }
+                    {
+                      "expression": "`total_runs`",
+                      "name": "total_runs"
+                    }
                   ]
                 }
               }
             ],
             "spec": {
               "encodings": {
-                "value": { "displayName": "Total Runs", "fieldName": "total_runs" }
+                "value": {
+                  "displayName": "Total Runs",
+                  "fieldName": "total_runs"
+                }
               },
-              "frame": { "showTitle": true, "title": "Total Runs" },
+              "frame": {
+                "showTitle": true,
+                "title": "Total Runs"
+              },
               "version": 2,
               "widgetType": "counter"
             }
           }
         },
         {
-          "position": { "height": 2, "width": 2, "x": 2, "y": 2 },
+          "position": {
+            "height": 2,
+            "width": 2,
+            "x": 2,
+            "y": 2
+          },
           "widget": {
             "name": "counter_failures",
             "queries": [
@@ -187,23 +242,37 @@
                   "datasetName": "failed_runs",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`failed_runs`", "name": "failed_runs" }
+                    {
+                      "expression": "`failed_runs`",
+                      "name": "failed_runs"
+                    }
                   ]
                 }
               }
             ],
             "spec": {
               "encodings": {
-                "value": { "displayName": "Failures", "fieldName": "failed_runs" }
+                "value": {
+                  "displayName": "Failures",
+                  "fieldName": "failed_runs"
+                }
               },
-              "frame": { "showTitle": true, "title": "Failed Runs" },
+              "frame": {
+                "showTitle": true,
+                "title": "Failed Runs"
+              },
               "version": 2,
               "widgetType": "counter"
             }
           }
         },
         {
-          "position": { "height": 2, "width": 2, "x": 4, "y": 2 },
+          "position": {
+            "height": 2,
+            "width": 2,
+            "x": 4,
+            "y": 2
+          },
           "widget": {
             "name": "counter_success_rate",
             "queries": [
@@ -213,23 +282,38 @@
                   "datasetName": "success_rate",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`success_rate`", "name": "success_rate" }
+                    {
+                      "expression": "`success_rate`",
+                      "name": "success_rate"
+                    }
                   ]
                 }
               }
             ],
             "spec": {
               "encodings": {
-                "value": { "displayName": "Success Rate", "fieldName": "success_rate", "numberFormat": "0.0%" }
+                "value": {
+                  "displayName": "Success Rate",
+                  "fieldName": "success_rate",
+                  "numberFormat": "0.0%"
+                }
               },
-              "frame": { "showTitle": true, "title": "Success Rate" },
+              "frame": {
+                "showTitle": true,
+                "title": "Success Rate"
+              },
               "version": 2,
               "widgetType": "counter"
             }
           }
         },
         {
-          "position": { "height": 6, "width": 6, "x": 0, "y": 4 },
+          "position": {
+            "height": 6,
+            "width": 6,
+            "x": 0,
+            "y": 4
+          },
           "widget": {
             "name": "latest_task_status",
             "queries": [
@@ -239,11 +323,26 @@
                   "datasetName": "latest_per_task",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`task_name`", "name": "task_name" },
-                    { "expression": "`status`", "name": "status" },
-                    { "expression": "`last_run`", "name": "last_run" },
-                    { "expression": "`duration_seconds`", "name": "duration_seconds" },
-                    { "expression": "`error_message`", "name": "error_message" }
+                    {
+                      "expression": "`task_name`",
+                      "name": "task_name"
+                    },
+                    {
+                      "expression": "`status`",
+                      "name": "status"
+                    },
+                    {
+                      "expression": "`last_run`",
+                      "name": "last_run"
+                    },
+                    {
+                      "expression": "`duration_seconds`",
+                      "name": "duration_seconds"
+                    },
+                    {
+                      "expression": "`error_message`",
+                      "name": "error_message"
+                    }
                   ]
                 }
               }
@@ -251,21 +350,49 @@
             "spec": {
               "encodings": {
                 "columns": [
-                  { "displayName": "Task", "fieldName": "task_name", "type": "string" },
-                  { "displayName": "Status", "fieldName": "status", "type": "string" },
-                  { "displayName": "Last Run", "fieldName": "last_run", "type": "datetime" },
-                  { "displayName": "Duration (s)", "fieldName": "duration_seconds", "type": "number" },
-                  { "displayName": "Error", "fieldName": "error_message", "type": "string" }
+                  {
+                    "displayName": "Task",
+                    "fieldName": "task_name",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Status",
+                    "fieldName": "status",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Last Run",
+                    "fieldName": "last_run",
+                    "type": "datetime"
+                  },
+                  {
+                    "displayName": "Duration (s)",
+                    "fieldName": "duration_seconds",
+                    "type": "number"
+                  },
+                  {
+                    "displayName": "Error",
+                    "fieldName": "error_message",
+                    "type": "string"
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "Latest Run Per Task" },
+              "frame": {
+                "showTitle": true,
+                "title": "Latest Run Per Task"
+              },
               "version": 2,
               "widgetType": "table"
             }
           }
         },
         {
-          "position": { "height": 6, "width": 3, "x": 0, "y": 10 },
+          "position": {
+            "height": 6,
+            "width": 3,
+            "x": 0,
+            "y": 10
+          },
           "widget": {
             "name": "run_status_chart",
             "queries": [
@@ -275,27 +402,62 @@
                   "datasetName": "run_counts",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`task_name`", "name": "task_name" },
-                    { "expression": "`status`", "name": "status" },
-                    { "expression": "`runs`", "name": "runs" }
+                    {
+                      "expression": "`task_name`",
+                      "name": "task_name"
+                    },
+                    {
+                      "expression": "`status`",
+                      "name": "status"
+                    },
+                    {
+                      "expression": "`runs`",
+                      "name": "runs"
+                    }
                   ]
                 }
               }
             ],
             "spec": {
               "encodings": {
-                "x": { "displayName": "Task", "fieldName": "task_name", "scale": { "type": "categorical" } },
-                "y": { "displayName": "Runs", "fieldName": "runs", "scale": { "type": "quantitative" } },
-                "color": { "displayName": "Status", "fieldName": "status", "scale": { "type": "categorical" } }
+                "x": {
+                  "displayName": "Task",
+                  "fieldName": "task_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "displayName": "Runs",
+                  "fieldName": "runs",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "displayName": "Status",
+                  "fieldName": "status",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
               },
-              "frame": { "showTitle": true, "title": "Run Count by Task & Status" },
+              "frame": {
+                "showTitle": true,
+                "title": "Run Count by Task & Status"
+              },
               "version": 3,
               "widgetType": "bar"
             }
           }
         },
         {
-          "position": { "height": 6, "width": 3, "x": 3, "y": 10 },
+          "position": {
+            "height": 6,
+            "width": 3,
+            "x": 3,
+            "y": 10
+          },
           "widget": {
             "name": "avg_duration_chart",
             "queries": [
@@ -305,26 +467,55 @@
                   "datasetName": "avg_duration",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`task_name`", "name": "task_name" },
-                    { "expression": "`avg_duration_s`", "name": "avg_duration_s" },
-                    { "expression": "`max_duration_s`", "name": "max_duration_s" }
+                    {
+                      "expression": "`task_name`",
+                      "name": "task_name"
+                    },
+                    {
+                      "expression": "`avg_duration_s`",
+                      "name": "avg_duration_s"
+                    },
+                    {
+                      "expression": "`max_duration_s`",
+                      "name": "max_duration_s"
+                    }
                   ]
                 }
               }
             ],
             "spec": {
               "encodings": {
-                "x": { "displayName": "Task", "fieldName": "task_name", "scale": { "type": "categorical" } },
-                "y": { "displayName": "Avg Duration (s)", "fieldName": "avg_duration_s", "scale": { "type": "quantitative" } }
+                "x": {
+                  "displayName": "Task",
+                  "fieldName": "task_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "displayName": "Avg Duration (s)",
+                  "fieldName": "avg_duration_s",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
               },
-              "frame": { "showTitle": true, "title": "Average Duration by Task" },
+              "frame": {
+                "showTitle": true,
+                "title": "Average Duration by Task"
+              },
               "version": 3,
               "widgetType": "bar"
             }
           }
         },
         {
-          "position": { "height": 6, "width": 6, "x": 0, "y": 16 },
+          "position": {
+            "height": 6,
+            "width": 6,
+            "x": 0,
+            "y": 16
+          },
           "widget": {
             "name": "duration_trend_chart",
             "queries": [
@@ -334,27 +525,62 @@
                   "datasetName": "duration_trend",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`run_date`", "name": "run_date" },
-                    { "expression": "`task_name`", "name": "task_name" },
-                    { "expression": "`avg_duration_s`", "name": "avg_duration_s" }
+                    {
+                      "expression": "`run_date`",
+                      "name": "run_date"
+                    },
+                    {
+                      "expression": "`task_name`",
+                      "name": "task_name"
+                    },
+                    {
+                      "expression": "`avg_duration_s`",
+                      "name": "avg_duration_s"
+                    }
                   ]
                 }
               }
             ],
             "spec": {
               "encodings": {
-                "x": { "displayName": "Date", "fieldName": "run_date", "scale": { "type": "temporal" } },
-                "y": { "displayName": "Avg Duration (s)", "fieldName": "avg_duration_s", "scale": { "type": "quantitative" } },
-                "color": { "displayName": "Task", "fieldName": "task_name", "scale": { "type": "categorical" } }
+                "x": {
+                  "displayName": "Date",
+                  "fieldName": "run_date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "displayName": "Avg Duration (s)",
+                  "fieldName": "avg_duration_s",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "displayName": "Task",
+                  "fieldName": "task_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
               },
-              "frame": { "showTitle": true, "title": "Duration Trend Over Time" },
+              "frame": {
+                "showTitle": true,
+                "title": "Duration Trend Over Time"
+              },
               "version": 3,
               "widgetType": "line"
             }
           }
         },
         {
-          "position": { "height": 6, "width": 6, "x": 0, "y": 22 },
+          "position": {
+            "height": 6,
+            "width": 6,
+            "x": 0,
+            "y": 22
+          },
           "widget": {
             "name": "daily_run_timeline",
             "queries": [
@@ -364,28 +590,66 @@
                   "datasetName": "daily_timeline",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`run_date`", "name": "run_date" },
-                    { "expression": "`task_name`", "name": "task_name" },
-                    { "expression": "`runs`", "name": "runs" },
-                    { "expression": "`failures`", "name": "failures" }
+                    {
+                      "expression": "`run_date`",
+                      "name": "run_date"
+                    },
+                    {
+                      "expression": "`task_name`",
+                      "name": "task_name"
+                    },
+                    {
+                      "expression": "`runs`",
+                      "name": "runs"
+                    },
+                    {
+                      "expression": "`failures`",
+                      "name": "failures"
+                    }
                   ]
                 }
               }
             ],
             "spec": {
               "encodings": {
-                "x": { "displayName": "Date", "fieldName": "run_date", "scale": { "type": "temporal" } },
-                "y": { "displayName": "Runs", "fieldName": "runs", "scale": { "type": "quantitative" } },
-                "color": { "displayName": "Task", "fieldName": "task_name", "scale": { "type": "categorical" } }
+                "x": {
+                  "displayName": "Date",
+                  "fieldName": "run_date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "displayName": "Runs",
+                  "fieldName": "runs",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "displayName": "Task",
+                  "fieldName": "task_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
               },
-              "frame": { "showTitle": true, "title": "Daily Run Volume by Task" },
+              "frame": {
+                "showTitle": true,
+                "title": "Daily Run Volume by Task"
+              },
               "version": 3,
               "widgetType": "bar"
             }
           }
         },
         {
-          "position": { "height": 2, "width": 6, "x": 0, "y": 28 },
+          "position": {
+            "height": 2,
+            "width": 6,
+            "x": 0,
+            "y": 28
+          },
           "widget": {
             "multilineTextboxSpec": {
               "lines": [
@@ -396,7 +660,12 @@
           }
         },
         {
-          "position": { "height": 6, "width": 3, "x": 0, "y": 30 },
+          "position": {
+            "height": 6,
+            "width": 3,
+            "x": 0,
+            "y": 30
+          },
           "widget": {
             "name": "dq_rules_table",
             "queries": [
@@ -406,12 +675,30 @@
                   "datasetName": "dq_summary",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`rule_name`", "name": "rule_name" },
-                    { "expression": "`severity`", "name": "severity" },
-                    { "expression": "`stage`", "name": "stage" },
-                    { "expression": "`total_rows`", "name": "total_rows" },
-                    { "expression": "`violating_rows`", "name": "violating_rows" },
-                    { "expression": "`pass_rate`", "name": "pass_rate" }
+                    {
+                      "expression": "`rule_name`",
+                      "name": "rule_name"
+                    },
+                    {
+                      "expression": "`severity`",
+                      "name": "severity"
+                    },
+                    {
+                      "expression": "`stage`",
+                      "name": "stage"
+                    },
+                    {
+                      "expression": "`total_rows`",
+                      "name": "total_rows"
+                    },
+                    {
+                      "expression": "`violating_rows`",
+                      "name": "violating_rows"
+                    },
+                    {
+                      "expression": "`pass_rate`",
+                      "name": "pass_rate"
+                    }
                   ]
                 }
               }
@@ -419,22 +706,54 @@
             "spec": {
               "encodings": {
                 "columns": [
-                  { "displayName": "Rule", "fieldName": "rule_name", "type": "string" },
-                  { "displayName": "Severity", "fieldName": "severity", "type": "string" },
-                  { "displayName": "Stage", "fieldName": "stage", "type": "string" },
-                  { "displayName": "Total Rows", "fieldName": "total_rows", "type": "number" },
-                  { "displayName": "Violations", "fieldName": "violating_rows", "type": "number" },
-                  { "displayName": "Pass Rate", "fieldName": "pass_rate", "type": "number" }
+                  {
+                    "displayName": "Rule",
+                    "fieldName": "rule_name",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Severity",
+                    "fieldName": "severity",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Stage",
+                    "fieldName": "stage",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Total Rows",
+                    "fieldName": "total_rows",
+                    "type": "number"
+                  },
+                  {
+                    "displayName": "Violations",
+                    "fieldName": "violating_rows",
+                    "type": "number"
+                  },
+                  {
+                    "displayName": "Pass Rate",
+                    "fieldName": "pass_rate",
+                    "type": "number"
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "Quality Rules Summary" },
+              "frame": {
+                "showTitle": true,
+                "title": "Quality Rules Summary"
+              },
               "version": 2,
               "widgetType": "table"
             }
           }
         },
         {
-          "position": { "height": 6, "width": 3, "x": 3, "y": 30 },
+          "position": {
+            "height": 6,
+            "width": 3,
+            "x": 3,
+            "y": 30
+          },
           "widget": {
             "name": "dq_trend_chart",
             "queries": [
@@ -444,26 +763,55 @@
                   "datasetName": "dq_trend",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`eval_date`", "name": "eval_date" },
-                    { "expression": "`violations`", "name": "violations" },
-                    { "expression": "`pass_rate`", "name": "pass_rate" }
+                    {
+                      "expression": "`eval_date`",
+                      "name": "eval_date"
+                    },
+                    {
+                      "expression": "`violations`",
+                      "name": "violations"
+                    },
+                    {
+                      "expression": "`pass_rate`",
+                      "name": "pass_rate"
+                    }
                   ]
                 }
               }
             ],
             "spec": {
               "encodings": {
-                "x": { "displayName": "Date", "fieldName": "eval_date", "scale": { "type": "temporal" } },
-                "y": { "displayName": "Violations", "fieldName": "violations", "scale": { "type": "quantitative" } }
+                "x": {
+                  "displayName": "Date",
+                  "fieldName": "eval_date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "displayName": "Violations",
+                  "fieldName": "violations",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
               },
-              "frame": { "showTitle": true, "title": "Data Quality Violations Over Time" },
+              "frame": {
+                "showTitle": true,
+                "title": "Data Quality Violations Over Time"
+              },
               "version": 3,
               "widgetType": "bar"
             }
           }
         },
         {
-          "position": { "height": 2, "width": 6, "x": 0, "y": 36 },
+          "position": {
+            "height": 2,
+            "width": 6,
+            "x": 0,
+            "y": 36
+          },
           "widget": {
             "multilineTextboxSpec": {
               "lines": [
@@ -474,7 +822,12 @@
           }
         },
         {
-          "position": { "height": 6, "width": 6, "x": 0, "y": 38 },
+          "position": {
+            "height": 6,
+            "width": 6,
+            "x": 0,
+            "y": 38
+          },
           "widget": {
             "name": "promotion_history_table",
             "queries": [
@@ -484,13 +837,34 @@
                   "datasetName": "promotion_history",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`candidate_version`", "name": "candidate_version" },
-                    { "expression": "`champion_version`", "name": "champion_version" },
-                    { "expression": "`decision`", "name": "decision" },
-                    { "expression": "`decision_reason`", "name": "decision_reason" },
-                    { "expression": "`candidate_pr_auc`", "name": "candidate_pr_auc" },
-                    { "expression": "`champion_pr_auc`", "name": "champion_pr_auc" },
-                    { "expression": "`evaluated_at`", "name": "evaluated_at" }
+                    {
+                      "expression": "`candidate_version`",
+                      "name": "candidate_version"
+                    },
+                    {
+                      "expression": "`champion_version`",
+                      "name": "champion_version"
+                    },
+                    {
+                      "expression": "`decision`",
+                      "name": "decision"
+                    },
+                    {
+                      "expression": "`decision_reason`",
+                      "name": "decision_reason"
+                    },
+                    {
+                      "expression": "`candidate_pr_auc`",
+                      "name": "candidate_pr_auc"
+                    },
+                    {
+                      "expression": "`champion_pr_auc`",
+                      "name": "champion_pr_auc"
+                    },
+                    {
+                      "expression": "`evaluated_at`",
+                      "name": "evaluated_at"
+                    }
                   ]
                 }
               }
@@ -498,23 +872,59 @@
             "spec": {
               "encodings": {
                 "columns": [
-                  { "displayName": "Candidate", "fieldName": "candidate_version", "type": "string" },
-                  { "displayName": "Champion", "fieldName": "champion_version", "type": "string" },
-                  { "displayName": "Decision", "fieldName": "decision", "type": "string" },
-                  { "displayName": "Reason", "fieldName": "decision_reason", "type": "string" },
-                  { "displayName": "Candidate PR-AUC", "fieldName": "candidate_pr_auc", "type": "number" },
-                  { "displayName": "Champion PR-AUC", "fieldName": "champion_pr_auc", "type": "number" },
-                  { "displayName": "Evaluated At", "fieldName": "evaluated_at", "type": "datetime" }
+                  {
+                    "displayName": "Candidate",
+                    "fieldName": "candidate_version",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Champion",
+                    "fieldName": "champion_version",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Decision",
+                    "fieldName": "decision",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Reason",
+                    "fieldName": "decision_reason",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Candidate PR-AUC",
+                    "fieldName": "candidate_pr_auc",
+                    "type": "number"
+                  },
+                  {
+                    "displayName": "Champion PR-AUC",
+                    "fieldName": "champion_pr_auc",
+                    "type": "number"
+                  },
+                  {
+                    "displayName": "Evaluated At",
+                    "fieldName": "evaluated_at",
+                    "type": "datetime"
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "Model Promotion Decisions" },
+              "frame": {
+                "showTitle": true,
+                "title": "Model Promotion Decisions"
+              },
               "version": 2,
               "widgetType": "table"
             }
           }
         },
         {
-          "position": { "height": 6, "width": 6, "x": 0, "y": 44 },
+          "position": {
+            "height": 6,
+            "width": 6,
+            "x": 0,
+            "y": 44
+          },
           "widget": {
             "name": "recent_failures_table",
             "queries": [
@@ -524,11 +934,26 @@
                   "datasetName": "recent_failures",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`task_name`", "name": "task_name" },
-                    { "expression": "`run_id`", "name": "run_id" },
-                    { "expression": "`started_at`", "name": "started_at" },
-                    { "expression": "`duration_seconds`", "name": "duration_seconds" },
-                    { "expression": "`error_message`", "name": "error_message" }
+                    {
+                      "expression": "`task_name`",
+                      "name": "task_name"
+                    },
+                    {
+                      "expression": "`run_id`",
+                      "name": "run_id"
+                    },
+                    {
+                      "expression": "`started_at`",
+                      "name": "started_at"
+                    },
+                    {
+                      "expression": "`duration_seconds`",
+                      "name": "duration_seconds"
+                    },
+                    {
+                      "expression": "`error_message`",
+                      "name": "error_message"
+                    }
                   ]
                 }
               }
@@ -536,21 +961,49 @@
             "spec": {
               "encodings": {
                 "columns": [
-                  { "displayName": "Task", "fieldName": "task_name", "type": "string" },
-                  { "displayName": "Run ID", "fieldName": "run_id", "type": "string" },
-                  { "displayName": "Started", "fieldName": "started_at", "type": "datetime" },
-                  { "displayName": "Duration (s)", "fieldName": "duration_seconds", "type": "number" },
-                  { "displayName": "Error", "fieldName": "error_message", "type": "string" }
+                  {
+                    "displayName": "Task",
+                    "fieldName": "task_name",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Run ID",
+                    "fieldName": "run_id",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Started",
+                    "fieldName": "started_at",
+                    "type": "datetime"
+                  },
+                  {
+                    "displayName": "Duration (s)",
+                    "fieldName": "duration_seconds",
+                    "type": "number"
+                  },
+                  {
+                    "displayName": "Error",
+                    "fieldName": "error_message",
+                    "type": "string"
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "Recent Failures" },
+              "frame": {
+                "showTitle": true,
+                "title": "Recent Failures"
+              },
               "version": 2,
               "widgetType": "table"
             }
           }
         },
         {
-          "position": { "height": 8, "width": 6, "x": 0, "y": 50 },
+          "position": {
+            "height": 8,
+            "width": 6,
+            "x": 0,
+            "y": 50
+          },
           "widget": {
             "name": "recent_runs_table",
             "queries": [
@@ -560,12 +1013,30 @@
                   "datasetName": "recent_runs",
                   "disaggregated": true,
                   "fields": [
-                    { "expression": "`task_name`", "name": "task_name" },
-                    { "expression": "`run_id`", "name": "run_id" },
-                    { "expression": "`status`", "name": "status" },
-                    { "expression": "`started_at`", "name": "started_at" },
-                    { "expression": "`duration_seconds`", "name": "duration_seconds" },
-                    { "expression": "`output_summary`", "name": "output_summary" }
+                    {
+                      "expression": "`task_name`",
+                      "name": "task_name"
+                    },
+                    {
+                      "expression": "`run_id`",
+                      "name": "run_id"
+                    },
+                    {
+                      "expression": "`status`",
+                      "name": "status"
+                    },
+                    {
+                      "expression": "`started_at`",
+                      "name": "started_at"
+                    },
+                    {
+                      "expression": "`duration_seconds`",
+                      "name": "duration_seconds"
+                    },
+                    {
+                      "expression": "`output_summary`",
+                      "name": "output_summary"
+                    }
                   ]
                 }
               }
@@ -573,17 +1044,248 @@
             "spec": {
               "encodings": {
                 "columns": [
-                  { "displayName": "Task", "fieldName": "task_name", "type": "string" },
-                  { "displayName": "Run ID", "fieldName": "run_id", "type": "string" },
-                  { "displayName": "Status", "fieldName": "status", "type": "string" },
-                  { "displayName": "Started", "fieldName": "started_at", "type": "datetime" },
-                  { "displayName": "Duration (s)", "fieldName": "duration_seconds", "type": "number" },
-                  { "displayName": "Output", "fieldName": "output_summary", "type": "string" }
+                  {
+                    "displayName": "Task",
+                    "fieldName": "task_name",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Run ID",
+                    "fieldName": "run_id",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Status",
+                    "fieldName": "status",
+                    "type": "string"
+                  },
+                  {
+                    "displayName": "Started",
+                    "fieldName": "started_at",
+                    "type": "datetime"
+                  },
+                  {
+                    "displayName": "Duration (s)",
+                    "fieldName": "duration_seconds",
+                    "type": "number"
+                  },
+                  {
+                    "displayName": "Output",
+                    "fieldName": "output_summary",
+                    "type": "string"
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "Recent Runs (Last 100)" },
+              "frame": {
+                "showTitle": true,
+                "title": "Recent Runs (Last 100)"
+              },
               "version": 2,
               "widgetType": "table"
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 58,
+            "width": 6,
+            "height": 3
+          },
+          "widget": {
+            "name": "drift_alerts_chart",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "drift_alerts",
+                  "fields": [
+                    {
+                      "name": "alert_level",
+                      "expression": "`alert_level`"
+                    },
+                    {
+                      "name": "features",
+                      "expression": "`features`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "alert_level",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Alert Level"
+                },
+                "y": {
+                  "fieldName": "features",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Features"
+                }
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 61,
+            "width": 6,
+            "height": 6
+          },
+          "widget": {
+            "name": "drift_summary_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "drift_summary",
+                  "fields": [
+                    {
+                      "name": "feature_name",
+                      "expression": "`feature_name`"
+                    },
+                    {
+                      "name": "feature_type",
+                      "expression": "`feature_type`"
+                    },
+                    {
+                      "name": "psi",
+                      "expression": "`psi`"
+                    },
+                    {
+                      "name": "ks_statistic",
+                      "expression": "`ks_statistic`"
+                    },
+                    {
+                      "name": "alert_level",
+                      "expression": "`alert_level`"
+                    },
+                    {
+                      "name": "baseline_mean",
+                      "expression": "`baseline_mean`"
+                    },
+                    {
+                      "name": "current_mean",
+                      "expression": "`current_mean`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "feature_name",
+                    "visible": true,
+                    "title": "Feature"
+                  },
+                  {
+                    "fieldName": "feature_type",
+                    "visible": true,
+                    "title": "Type"
+                  },
+                  {
+                    "fieldName": "psi",
+                    "visible": true,
+                    "title": "PSI"
+                  },
+                  {
+                    "fieldName": "ks_statistic",
+                    "visible": true,
+                    "title": "KS"
+                  },
+                  {
+                    "fieldName": "alert_level",
+                    "visible": true,
+                    "title": "Alert"
+                  },
+                  {
+                    "fieldName": "baseline_mean",
+                    "visible": true,
+                    "title": "Baseline Mean"
+                  },
+                  {
+                    "fieldName": "current_mean",
+                    "visible": true,
+                    "title": "Current Mean"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 67,
+            "width": 6,
+            "height": 4
+          },
+          "widget": {
+            "name": "drift_psi_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "drift_trend",
+                  "fields": [
+                    {
+                      "name": "snapshot_date",
+                      "expression": "`snapshot_date`"
+                    },
+                    {
+                      "name": "psi",
+                      "expression": "`psi`"
+                    },
+                    {
+                      "name": "feature_name",
+                      "expression": "`feature_name`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "snapshot_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Snapshot Date"
+                },
+                "y": {
+                  "fieldName": "psi",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "PSI"
+                },
+                "color": {
+                  "fieldName": "feature_name",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Feature"
+                }
+              }
             }
           }
         }

@@ -274,6 +274,30 @@ resources:
               - --scoring-run-id
               - "{{job.run_id}}"
 
+    churn_drift_monitor:
+      name: ${bundle.target}-churn-drift-monitor
+      description: Compute feature and prediction drift metrics vs training baseline.
+      max_concurrent_runs: 1
+      timeout_seconds: 1800
+
+      environments:
+        - environment_key: etl_v4
+          spec:
+            environment_version: "4"
+            dependencies:
+              - numpy
+
+      tasks:
+        - task_key: compute_drift
+          environment_key: etl_v4
+          spark_python_task:
+            python_file: "../src/churn_pipeline/monitoring/monitor.py"
+            parameters:
+              - --catalog
+              - ${resources.schemas.churn_schema.catalog_name}
+              - --schema
+              - ${resources.schemas.churn_schema.name}
+
     churn_model_rollback:
       name: ${bundle.target}-churn-model-rollback
       description: Manually restore the Champion alias to a validated model version.
