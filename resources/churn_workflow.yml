@@ -206,6 +206,10 @@ resources:
       description: Train a Candidate model and apply the Champion promotion policy.
       max_concurrent_runs: 1
       timeout_seconds: 7200
+      schedule:
+        quartz_cron_expression: "0 0 7 ? * MON#1,MON#3"
+        timezone_id: America/Toronto
+        pause_status: UNPAUSED
 
       environments:
         - environment_key: ml_v4
@@ -333,7 +337,7 @@ resources:
 
     churn_end_to_end:
       name: ${bundle.target}-churn-end-to-end
-      description: Orchestrate data preparation, model promotion, and batch scoring.
+      description: Orchestrate data preparation and batch scoring.
       max_concurrent_runs: 1
       timeout_seconds: 18000
       schedule:
@@ -345,14 +349,8 @@ resources:
           run_job_task:
             job_id: ${resources.jobs.churn_data_pipeline.id}
 
-        - task_key: run_model_pipeline
-          depends_on:
-            - task_key: run_data_pipeline
-          run_job_task:
-            job_id: ${resources.jobs.churn_model_pipeline.id}
-
         - task_key: run_batch_score
           depends_on:
-            - task_key: run_model_pipeline
+            - task_key: run_data_pipeline
           run_job_task:
             job_id: ${resources.jobs.churn_batch_score.id}

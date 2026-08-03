@@ -69,7 +69,6 @@ def test_end_to_end_job_orchestrates_stage_jobs_in_order():
 
     assert [task["task_key"] for task in tasks] == [
         "run_data_pipeline",
-        "run_model_pipeline",
         "run_batch_score",
     ]
     assert tasks[0]["run_job_task"]["job_id"] == (
@@ -77,10 +76,6 @@ def test_end_to_end_job_orchestrates_stage_jobs_in_order():
     )
     assert tasks[1]["depends_on"] == [{"task_key": "run_data_pipeline"}]
     assert tasks[1]["run_job_task"]["job_id"] == (
-        "${resources.jobs.churn_model_pipeline.id}"
-    )
-    assert tasks[2]["depends_on"] == [{"task_key": "run_model_pipeline"}]
-    assert tasks[2]["run_job_task"]["job_id"] == (
         "${resources.jobs.churn_batch_score.id}"
     )
 
@@ -89,8 +84,13 @@ def test_scheduled_jobs():
     jobs = load_jobs()
     scheduled_jobs = {job_key for job_key, job in jobs.items() if "schedule" in job}
 
-    assert scheduled_jobs == {"churn_event_generator", "churn_end_to_end"}
+    assert scheduled_jobs == {
+        "churn_event_generator",
+        "churn_model_pipeline",
+        "churn_end_to_end",
+    }
     assert jobs["churn_event_generator"]["schedule"]["pause_status"] == "UNPAUSED"
+    assert jobs["churn_model_pipeline"]["schedule"]["pause_status"] == "UNPAUSED"
     assert jobs["churn_end_to_end"]["schedule"]["pause_status"] == "UNPAUSED"
 
 
