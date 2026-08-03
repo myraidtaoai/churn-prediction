@@ -53,9 +53,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-      BUNDLE_VAR_warehouse_id: ${{ secrets.DATABRICKS_WAREHOUSE_ID }}
+      DATABRICKS_WAREHOUSE_ID: ${{ vars.DATABRICKS_WAREHOUSE_ID }}
 
     steps:
       - name: Check out the Dev-verified revision
@@ -66,8 +66,12 @@ jobs:
       - name: Install Databricks CLI
         uses: databricks/setup-cli@main
 
-      - name: Verify authentication
-        run: databricks current-user me
+      - name: Check deployment configuration
+        run: |
+          test -n "${DATABRICKS_HOST}"
+          test -n "${DATABRICKS_TOKEN}"
+          test -n "${DATABRICKS_WAREHOUSE_ID}"
+          databricks current-user me
 
       - name: Validate Production bundle
         run: databricks bundle validate -t prod

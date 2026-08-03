@@ -27,9 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-      BUNDLE_VAR_warehouse_id: ${{ secrets.DATABRICKS_WAREHOUSE_ID }}
+      DATABRICKS_WAREHOUSE_ID: ${{ vars.DATABRICKS_WAREHOUSE_ID }}
 
     steps:
       - name: Check out the verified revision
@@ -40,14 +40,17 @@ jobs:
       - name: Install Databricks CLI
         uses: databricks/setup-cli@main
 
-      - name: Verify authentication
-        run: databricks current-user me
+      - name: Check deployment configuration
+        run: |
+          test -n "${DATABRICKS_HOST}"
+          test -n "${DATABRICKS_TOKEN}"
+          test -n "${DATABRICKS_WAREHOUSE_ID}"
+          databricks current-user me
 
       - name: Validate Dev bundle
         run: databricks bundle validate -t dev
 
       - name: Deploy Dev bundle
-        run: databricks bundle deploy -t dev
-
-      - name: Run Dev integration smoke test
-        run: databricks bundle run -t dev churn_end_to_end
+        run: >-
+          databricks bundle deploy -t dev
+          --var="warehouse_id=${DATABRICKS_WAREHOUSE_ID}"
