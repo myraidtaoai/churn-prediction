@@ -9,6 +9,7 @@ EXPECTED_JOBS = {
     "churn_event_generator",
     "churn_seed_bronze",
     "churn_data_pipeline",
+    "churn_backfill_features",
     "churn_model_pipeline",
     "churn_model_rollback",
     "churn_batch_score",

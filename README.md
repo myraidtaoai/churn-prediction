@@ -141,6 +141,12 @@ databricks bundle run churn_model_pipeline -t dev --var="warehouse_id=<warehouse
 databricks bundle run churn_batch_score -t dev --var="warehouse_id=<warehouse-id>"
 ```
 
+To backfill features and labels for a historical date:
+
+```bash
+databricks bundle run churn_backfill_features -t dev --var="warehouse_id=<warehouse-id>" --params as_of_date=2026-06-15
+```
+
 To roll the Champion alias back to a previously validated registered-model version, run the manual rollback job with the target version:
 
 ```bash
