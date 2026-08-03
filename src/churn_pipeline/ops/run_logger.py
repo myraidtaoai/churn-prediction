@@ -55,22 +55,44 @@ def log_run(
             status,
             started_at.isoformat(),
             finished_at.isoformat(),
-            round(duration, 2),
+            float(round(duration, 2)),
             json.dumps(output_summary or {}, sort_keys=True),
-            error_message,
+            error_message or "",
         )
     ]
-    columns = [
-        "task_name",
-        "run_id",
-        "status",
-        "started_at",
-        "finished_at",
-        "duration_seconds",
-        "output_summary",
-        "error_message",
-    ]
-    df = spark.createDataFrame(row, schema=columns)
+    try:
+        from pyspark.sql.types import (
+            DoubleType,
+            StringType,
+            StructField,
+            StructType,
+        )
+
+        spark_schema = StructType(
+            [
+                StructField("task_name", StringType(), False),
+                StructField("run_id", StringType(), False),
+                StructField("status", StringType(), False),
+                StructField("started_at", StringType(), False),
+                StructField("finished_at", StringType(), False),
+                StructField("duration_seconds", DoubleType(), False),
+                StructField("output_summary", StringType(), True),
+                StructField("error_message", StringType(), True),
+            ]
+        )
+    except ImportError:
+        # Unit-test path — pyspark not installed locally.
+        spark_schema = [
+            "task_name",
+            "run_id",
+            "status",
+            "started_at",
+            "finished_at",
+            "duration_seconds",
+            "output_summary",
+            "error_message",
+        ]
+    df = spark.createDataFrame(row, schema=spark_schema)
     target = _table(catalog, schema, "pipeline_runs")
     df.write.format("delta").mode("append").saveAsTable(target)
 
