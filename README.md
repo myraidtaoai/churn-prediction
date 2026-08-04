@@ -5,32 +5,62 @@
 ![MLflow](https://img.shields.io/badge/MLflow-Tracking-0194E2?style=flat-square&logo=mlflow&logoColor=white)
 ![Serverless](https://img.shields.io/badge/Compute-Serverless-6F42C1?style=flat-square&logo=apache-spark&logoColor=white)
 ![Asset Bundles](https://img.shields.io/badge/IaC-Asset%20Bundles-FF3621?style=flat-square&logo=databricks&logoColor=white)
-![CI](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions%20%2B%20OIDC-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+![CI](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions%20%2B%20PAT-2088FF?style=flat-square&logo=githubactions&logoColor=white)
 
-A batch data platform that ingests simulated customer events, refines them through a Bronze/Silver/Gold medallion into point-in-time feature snapshots, and serves a governed churn model on top of them. Every stage is deployed as a Databricks Asset Bundle, governed by Unity Catalog, and released through GitHub Actions with short-lived OIDC credentials. Model candidates are gated against the incumbent Champion on objective metric thresholds and promoted only when they win; every score ever produced is retained in an immutable, model-versioned prediction history, and the Champion can be rolled back with a single command.
+A batch data platform that ingests simulated customer events, refines them through a Bronze/Silver/Gold medallion into point-in-time feature snapshots, and serves a governed churn model on top of them. Every stage is deployed as a Databricks Asset Bundle, governed by Unity Catalog, and released through GitHub Actions with PAT authentication. Model candidates are gated against the incumbent Champion on objective metric thresholds and promoted only when they win; every score ever produced is retained in an immutable, model-versioned prediction history, and the Champion can be rolled back with a single command. Feature and prediction drift are monitored via PSI and KS statistics, and pipeline health is tracked through an observability dashboard.
 
 The point of this repository is the operational surface, not the model. It is built to answer *"how would you run a machine learning system in production?"* rather than *"how do you train a model?"*
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-    GEN["Event generator<br/>deterministic · drift-controlled"] --> VOL["Landing Volume<br/>append-only JSONL"]
-    VOL --> AL["Auto Loader<br/>checkpointed"]
-    AL --> BR["Bronze<br/>raw + dedup"]
-    AL -.rejected.-> QR["Quarantine"]
-    BR --> SV["Silver<br/>MERGE · contract-enforced"]
-    SV -.rejected.-> QR
-    SV --> GD["Gold<br/>point-in-time snapshots<br/>+ delayed labels"]
-    GD --> TR["Train candidate"]
-    TR --> GATE{"Quality gates"}
-    GATE -->|reject| LOG["Decision logged<br/>Champion unchanged"]
-    GATE -->|promote| REG["Champion alias"]
-    REG --> SC["Batch scoring<br/>Spark UDF"]
-    GD --> SC
-    SC --> PH["Prediction history<br/>immutable · versioned"]
-    PH --> DASH["AI/BI dashboard"]
-    REG -.rollback.-> REG
+flowchart TD
+    subgraph ingestion ["Ingestion"]
+        GEN["Event Generator<br/>deterministic · drift-controlled"]
+        VOL["Landing Volume<br/>append-only JSONL"]
+        AL["Auto Loader<br/>checkpointed · exactly-once"]
+        GEN --> VOL --> AL
+    end
+
+    subgraph medallion ["Medallion Pipeline"]
+        BR["Bronze<br/>raw + dedup"]
+        QR["Quarantine<br/>rejected rows"]
+        SV["Silver<br/>MERGE · contract-enforced"]
+        GD["Gold<br/>point-in-time snapshots<br/>+ delayed labels"]
+        AL --> BR
+        AL -.rejected.-> QR
+        BR --> SV
+        SV -.rejected.-> QR
+        SV --> GD
+    end
+
+    subgraph modeling ["Model Lifecycle"]
+        TR["Train Candidate<br/>XGBoost · LightGBM · RF · ET"]
+        GATE{"Quality Gates<br/>PR-AUC · Recall"}
+        LOG["Decision Logged<br/>Champion unchanged"]
+        REG["Champion Alias<br/>Unity Catalog"]
+        GD --> TR --> GATE
+        GATE -->|reject| LOG
+        GATE -->|promote| REG
+        REG -.rollback.-> REG
+    end
+
+    subgraph scoring ["Scoring"]
+        SC["Batch Scoring<br/>Spark UDF · distributed"]
+        PH["Prediction History<br/>immutable · versioned"]
+        REG --> SC
+        GD --> SC
+        SC --> PH
+    end
+
+    subgraph monitoring ["Monitoring & Observability"]
+        DM["Drift Monitor<br/>PSI · KS statistics"]
+        DASH["AI/BI Dashboard<br/>+ Pipeline Observability"]
+        GD --> DM
+        PH --> DM
+        DM --> DASH
+        PH --> DASH
+    end
 ```
 
 Full diagram, layer contracts, design decisions, and the failure/recovery matrix: **[docs/architecture.md](docs/architecture.md)**.
@@ -45,34 +75,40 @@ Full diagram, layer contracts, design decisions, and the failure/recovery matrix
 
 | Capability | How | Where |
 |---|---|---|
-| Infrastructure as code | Schema, Volume, experiment, registered model, dashboard, and six jobs declared in one bundle | `databricks.yml`, `resources/churn_workflow.yml` |
-| CI/CD with no long-lived secrets | Lint, test, and bundle validation on PR; auto-deploy to dev on merge; SHA-pinned, approval-gated prod | `.github/workflows/` |
+| Infrastructure as code | Schema, Volume, experiment, registered model, dashboards, and nine jobs declared in one bundle | `databricks.yml`, `resources/churn_workflow.yml` |
+| CI/CD with PAT auth | Lint, test, and bundle validation on PR; auto-deploy to dev on merge; SHA-pinned, approval-gated prod | `.github/workflows/` |
 | Governed data and models | Unity Catalog schema, managed Volume, registered model with aliases | `resources/churn_workflow.yml` |
 | Objective model promotion | PR-AUC improvement and recall-degradation thresholds; rejection is a logged outcome, not a failure | `src/churn_pipeline/modeling/promotion_policy.py`, `promote.py` |
 | Auditable scoring | Append-only `prediction_history` tagged with model version and run ID; `current_customer_churn_scores` is a view over it | `src/churn_pipeline/modeling/score.py` |
 | Safe rollback | Validates version, inference contract, and metrics before restoring the alias; appends a `ROLLBACK` event | `src/churn_pipeline/modeling/rollback.py` |
 | Distributed inference | MLflow Spark UDF — no `toPandas()` collection to the driver, enforced by a regression test | `src/churn_pipeline/modeling/inference.py`, `mlflow_compat.py` |
 | Versioned inference contract | Scoring refuses an incompatible Champion instead of silently producing wrong output | `src/churn_pipeline/modeling/inference.py` |
+| Idempotent, replayable ETL | Deterministic keys, `MERGE` upserts, date-windowed backfill; same input always yields same output | `src/churn_pipeline/ingestion/`, `transformation/` |
+| Data quality with quarantine | Three-tier severity (fail/quarantine/warn); bad rows routed to quarantine, not dropped silently | `src/churn_pipeline/transformation/quality.py` |
+| Drift monitoring | PSI and KS statistics per feature and for predictions; alerts at 0.10/0.25 thresholds | `src/churn_pipeline/monitoring/drift.py`, `monitor.py` |
+| Pipeline observability | Every task logs status, duration, and output summary; AI/BI dashboard tracks runs, quality, and drift | `src/churn_pipeline/ops/run_logger.py`, `dashboards/` |
+| Scheduled production pipeline | Event generation daily 5 AM, data + scoring daily 6 AM, model retraining 1st & 15th monthly | `resources/churn_workflow.yml` |
 | Reproducible synthetic data | Same date + seed + drift level yields byte-identical events; conflicting rewrites are rejected | `src/churn_pipeline/ingestion/generate_events.py` |
 | Model explainability | SHAP over a held-out sample, published to a table the dashboard reads | `src/churn_pipeline/modeling/train.py` |
-| Tested | 11 test modules covering thresholds, promotion guardrails, inference contract, bundle/dashboard contracts | `tests/` |
+| Tested | 19 test modules, 167 tests covering ETL idempotency, quality, drift, promotion, inference contract, bundle/dashboard contracts | `tests/` |
 
 ## Roadmap
 
 The platform is being hardened along a documented plan: **[plans/implementation-plan.md](plans/implementation-plan.md)**.
 
 - [x] Asset Bundles, Unity Catalog, dev/prod targets
-- [x] CI/CD with OIDC and approval-gated production
+- [x] CI/CD with PAT auth and approval-gated production
 - [x] Quality-gated promotion, alias rollback, immutable prediction history
 - [x] Distributed inference with a versioned contract
 - [x] Deterministic event generator with controlled drift
-- [ ] **Idempotent, replayable ETL** — deterministic keys, `MERGE`, date-windowed backfill
-- [ ] **Auto Loader incremental ingestion** — the events currently land but are not yet consumed
-- [ ] **Data quality with quarantine** — reject rows, not batches
-- [ ] **Versioned data contract enforced in code** — shared by producer and consumer
-- [ ] **Point-in-time features and delayed labels** — leakage prevention proven by test
-- [ ] Operational tables, alerting, and runbook
-- [ ] Drift monitoring
+- [x] Idempotent, replayable ETL — deterministic keys, `MERGE`, date-windowed backfill
+- [x] Auto Loader incremental ingestion — checkpointed, exactly-once
+- [x] Data quality with quarantine — three-tier severity (fail/quarantine/warn)
+- [x] Versioned data contract enforced in code — shared by producer and consumer
+- [x] Point-in-time features and delayed labels — leakage prevention proven by test
+- [x] Pipeline observability — run logging, data quality metrics, AI/BI dashboard
+- [x] Drift monitoring — PSI + KS statistics, standalone job, dashboard widgets
+- [x] Scheduled production pipeline — event gen, data + scoring, biweekly retraining
 
 ## Deliberate non-goals
 
@@ -99,7 +135,7 @@ databricks bundle deploy -t dev --var="warehouse_id=<warehouse-id>"
 
 Deployment packages the repository CSV and creates the schema and `landing` Volume. Run `churn_seed_bronze` once to copy the packaged CSV to the resolved Volume path. This correctly handles the schema prefix that development mode adds, so no manual `databricks fs cp` command is required.
 
-Pushes to `main` that pass CI are automatically validated, deployed to Dev, and exercised with the end-to-end workflow. Production deployment is manual, accepts only a commit SHA that passed the Dev deployment, and uses the protected `prod` GitHub environment for approval. Both stages authenticate with short-lived GitHub OIDC credentials. Complete the one-time environment and service-principal configuration in [Deployment and identity setup](docs/deployment.md).
+Pushes to `main` that pass CI are automatically validated and deployed to Dev. Production deployment is manual, accepts only a commit SHA that passed the Dev deployment, and uses the protected `prod` GitHub environment for approval. Both stages authenticate with a Personal Access Token stored in GitHub Secrets. Complete the one-time environment configuration in [Deployment and identity setup](docs/deployment.md).
 
 Override variables to use another catalog or schema. Use the same values for deploy and run:
 
@@ -189,17 +225,15 @@ The unit tests cover validation-threshold selection, production risk-segment bou
 <details>
 <summary><b>Dashboard details</b></summary>
 
-The bundle deploys an AI/BI dashboard definition from `dashboards/churn_exploration_and_model_results.lvdash.json`. It combines customer exploration with model results using:
+The bundle deploys two AI/BI dashboards:
 
-- `<catalog>.<schema>.telco_silver` and `<catalog>.<schema>.current_customer_churn_scores` for customer counts, observed churn, risk segmentation, contract analysis, and the high-risk action list.
-- `<catalog>.<schema>.prediction_history` for immutable, versioned batch-scoring history.
-- `<catalog>.<schema>.model_validation_metrics` for the Champion model's ROC-AUC and PR-AUC.
-- `<catalog>.<schema>.model_comparison_metrics` for validation PR-AUC across all four candidate classifiers.
-- `<catalog>.<schema>.shap_feature_importance` for the model's most influential churn drivers.
+**Churn Exploration & Model Results** (`dashboards/churn_exploration_and_model_results.lvdash.json`) — a continuous, PDF-friendly Churn Intelligence Report combining customer exploration with model evidence. It covers tenure, payment, contract patterns, risk segmentation, calibration, candidate trade-offs, SHAP explanations, and the high-risk action list.
 
-The dashboard is organized as one continuous, PDF-friendly **Churn Intelligence Report**. It flows from the executive summary into customer exploration, model evidence, and retention actions without switching pages. The report uses counters, colored bars, an area trend, a calibration line, a risk-composition pie, a contract-level bubble scatter, horizontal SHAP bars, and an operational table. It covers tenure, payment, internet-service and charge-band patterns, calibration, candidate trade-offs, test metrics, SHAP explanation, and risk-value concentration.
+**Pipeline Observability** (`dashboards/pipeline_observability.lvdash.json`) — operational dashboard tracking pipeline run history, data quality metrics, model promotion decisions, and feature/prediction drift alerts. Sources include `pipeline_runs`, `data_quality_metrics`, `model_promotion_history`, and `drift_metrics`.
 
-Run the workflow once before opening the dashboard, so its source tables exist. The dashboard is deployed as a draft; open it from **Dashboards**, verify the configured Free Edition SQL warehouse, then publish it when the data looks correct.
+A Power BI dashboard spec is also provided for connecting Power BI Desktop to the Databricks SQL warehouse via JDBC/ODBC. See [Power BI dashboard spec](docs/powerbi-dashboard-spec.md) for field mappings and visual configurations.
+
+Run the workflow once before opening either dashboard, so the source tables exist. Dashboards are deployed as drafts; open them from **Dashboards**, verify the configured SQL warehouse, then publish when the data looks correct.
 
 To pull an existing remote Databricks dashboard definition down into the local bundle (for example, after edits made in the Databricks UI), run:
 
@@ -207,7 +241,7 @@ To pull an existing remote Databricks dashboard definition down into the local b
 databricks bundle generate dashboard -t dev --existing-id <dashboard-id>
 ```
 
-Review the generated local dashboard file before redeploying it. This lets the remote UI version become the starting point for subsequent bundle-managed changes.
+Review the generated local dashboard file before redeploying it.
 
 </details>
 
@@ -220,7 +254,7 @@ The bundle is configured for Free Edition's serverless-only compute. The end-to-
 
 The identity running `bundle deploy` needs permission to create a schema, managed Volume, registered model, dashboard, and an MLflow experiment directly in its workspace home. The workflow run identity needs `READ VOLUME` and `WRITE VOLUME` on the landing Volume and permission to create or replace tables in the deployed schema.
 
-The end-to-end job owns the weekly schedule, which is intentionally paused. Resume it in the Databricks job UI after the first successful end-to-end run, or change `pause_status` to `UNPAUSED` and redeploy. The stage jobs remain unscheduled so they cannot accidentally overlap with orchestration.
+Three jobs are scheduled in production: the event generator runs daily at 5 AM (Toronto), the end-to-end orchestrator (data pipeline + batch scoring) runs daily at 6 AM, and the model pipeline retrains on the 1st and 15th of each month at 7 AM. All schedules are active (`UNPAUSED`) in the prod target. The dev target inherits the same schedule definitions but Databricks development mode prevents them from firing automatically.
 
 </details>
 
@@ -243,4 +277,4 @@ The end-to-end job owns the weekly schedule, which is intentionally paused. Resu
 | [Architecture](docs/architecture.md) | Full diagram, layer contracts, design decisions, failure/recovery matrix |
 | [Implementation plan](plans/implementation-plan.md) | Current-state audit, phased tasks with acceptance criteria, execution order |
 | [Event generation](docs/event-generation.md) | Simulation contract, landing layout, drift behavior |
-| [Deployment](docs/deployment.md) | OIDC and service-principal setup |
+| [Deployment](docs/deployment.md) | PAT auth and environment setup |
