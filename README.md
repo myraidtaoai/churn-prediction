@@ -5,7 +5,7 @@
 ![MLflow](https://img.shields.io/badge/MLflow-Tracking-0194E2?style=flat-square&logo=mlflow&logoColor=white)
 ![Serverless](https://img.shields.io/badge/Compute-Serverless-6F42C1?style=flat-square&logo=apache-spark&logoColor=white)
 ![Asset Bundles](https://img.shields.io/badge/IaC-Asset%20Bundles-FF3621?style=flat-square&logo=databricks&logoColor=white)
-![CI](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions%20%2B%20PAT-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+[![CI](https://github.com/myraidtaoai/churn-prediction/actions/workflows/ci.yml/badge.svg)](https://github.com/myraidtaoai/churn-prediction/actions/workflows/ci.yml)
 
 A batch data platform that ingests simulated customer events, refines them through a Bronze/Silver/Gold medallion into point-in-time feature snapshots, and serves a governed churn model on top of them. Every stage is deployed as a Databricks Asset Bundle, governed by Unity Catalog, and released through GitHub Actions with PAT authentication. Model candidates are gated against the incumbent Champion on objective metric thresholds and promoted only when they win; every score ever produced is retained in an immutable, model-versioned prediction history, and the Champion can be rolled back with a single command. Feature and prediction drift are monitored via PSI and KS statistics, and pipeline health is tracked through an observability dashboard.
 
@@ -250,7 +250,7 @@ Review the generated local dashboard file before redeploying it.
 
 Bronze and Silver use an untouched serverless environment-4 base. Training and scoring use a separate environment that installs only the missing ML libraries. NumPy, pandas, SciPy, scikit-learn, PyArrow, and Databricks Connect come from the coherent Databricks base environment and must not be reinstalled in a task or notebook. This separation exists so that compiled ML wheels cannot break Spark Connect initialization in the ETL path.
 
-The bundle is configured for Free Edition's serverless-only compute. The end-to-end job invokes the stage jobs sequentially and does not require a custom VM type or cluster configuration. Keep its weekly schedule paused until `churn_end_to_end` succeeds interactively; Free Edition compute is quota-limited and is intended for learning and non-commercial projects. Free Edition also has constrained Model Serving capacity, so a real-time API endpoint should be treated as optional experimentation rather than the primary delivery mechanism.
+The bundle is configured for Free Edition's serverless-only compute. The end-to-end job invokes the stage jobs sequentially and does not require a custom VM type or cluster configuration. Free Edition compute is quota-limited and is intended for learning and non-commercial projects. Free Edition also has constrained Model Serving capacity, so a real-time API endpoint should be treated as optional experimentation rather than the primary delivery mechanism.
 
 The identity running `bundle deploy` needs permission to create a schema, managed Volume, registered model, dashboard, and an MLflow experiment directly in its workspace home. The workflow run identity needs `READ VOLUME` and `WRITE VOLUME` on the landing Volume and permission to create or replace tables in the deployed schema.
 
@@ -278,3 +278,7 @@ Three jobs are scheduled in production: the event generator runs daily at 5 AM (
 | [Implementation plan](plans/implementation-plan.md) | Current-state audit, phased tasks with acceptance criteria, execution order |
 | [Event generation](docs/event-generation.md) | Simulation contract, landing layout, drift behavior |
 | [Deployment](docs/deployment.md) | PAT auth and environment setup |
+
+## Author
+
+**Ansen Wen** — Data Engineer

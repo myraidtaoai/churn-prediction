@@ -1,4 +1,4 @@
-# Declarative Automation Bundle for the Telco Customer Churn project.
+# Asset Bundles for the Telco Customer Churn project.
 bundle:
   name: churn-prediction
 
