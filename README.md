@@ -282,4 +282,5 @@ Three jobs are scheduled in production: the event generator runs daily at 5 AM (
 ## Author
 
 **Jianhong Wen** — Data Engineer
-LinkedIn: [https://www.linkedin.com/in/jianhong-wen-279a3b3a4/](https://www.linkedin.com/in/jianhong-wen-279a3b3a4/)
+
+**LinkedIn**: [https://www.linkedin.com/in/jianhong-wen-279a3b3a4/](https://www.linkedin.com/in/jianhong-wen-279a3b3a4/)
