@@ -128,7 +128,7 @@
       "displayName": "Promotion history",
       "name": "promotion_history",
       "queryLines": [
-        "SELECT candidate_version, champion_version, decision, decision_reason, candidate_pr_auc, champion_pr_auc, evaluated_at\n",
+        "SELECT candidate_version, previous_champion_version, decision, decision_reason, candidate_pr_auc, champion_pr_auc, evaluated_at\n",
         "FROM model_promotion_history\n",
         "ORDER BY evaluated_at DESC\n",
         "LIMIT 20"
@@ -842,8 +842,8 @@
                       "name": "candidate_version"
                     },
                     {
-                      "expression": "`champion_version`",
-                      "name": "champion_version"
+                      "expression": "`previous_champion_version`",
+                      "name": "previous_champion_version"
                     },
                     {
                       "expression": "`decision`",
@@ -878,8 +878,8 @@
                     "type": "string"
                   },
                   {
-                    "displayName": "Champion",
-                    "fieldName": "champion_version",
+                    "displayName": "Previous Champion",
+                    "fieldName": "previous_champion_version",
                     "type": "string"
                   },
                   {
