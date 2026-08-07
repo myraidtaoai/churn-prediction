@@ -5,7 +5,7 @@
 ![MLflow](https://img.shields.io/badge/MLflow-Tracking-0194E2?style=flat-square&logo=mlflow&logoColor=white)
 ![Serverless](https://img.shields.io/badge/Compute-Serverless-6F42C1?style=flat-square&logo=apache-spark&logoColor=white)
 ![Asset Bundles](https://img.shields.io/badge/IaC-Asset%20Bundles-FF3621?style=flat-square&logo=databricks&logoColor=white)
-[![CI](https://github.com/myraidtaoai/churn-prediction/actions/workflows/ci.yml/badge.svg)](https://github.com/myraidtaoai/churn-prediction/actions/workflows/ci.yml)
+[![CI](https://github.com/myraidtaoai/databricks-churn-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/myraidtaoai/databricks-churn-platform/actions/workflows/ci.yml)
 
 A batch data platform that ingests simulated customer events, refines them through a Bronze/Silver/Gold medallion into point-in-time feature snapshots, and serves a governed churn model on top of them. Every stage is deployed as a Databricks Asset Bundle, governed by Unity Catalog, and released through GitHub Actions with PAT authentication. Model candidates are gated against the incumbent Champion on objective metric thresholds and promoted only when they win; every score ever produced is retained in an immutable, model-versioned prediction history, and the Champion can be rolled back with a single command. Feature and prediction drift are monitored via PSI and KS statistics, and pipeline health is tracked through an observability dashboard.
 
@@ -67,9 +67,12 @@ Full diagram, layer contracts, design decisions, and the failure/recovery matrix
 
 ## Dashboard
 
-![Telco Churn exploration and model results dashboard](docs/images/telco-churn-dashboard-snapshot.png)
+![Telco Churn exploration and model results dashboard](docs/images/Telco-Churn-Exploration-Model-Results.jpg)
+![Telco Churn pipeline observability dashboard](docs/images/Pipeline-Observability.jpg)
+View the full dashboard PDF →
+[Data Exploraton and Model Results](outputs/Telco-Churn-Exploration-Model-Results.pdf)
+[Pipeline Observability](outputs/Telco-Churn-Pipeline-Observability.pdf)
 
-[View the full dashboard PDF →](outputs/Telco%20Churn%20%E2%80%94%20Exploration%20%26%20Model%20Results.pdf)
 
 ## What this demonstrates
 
